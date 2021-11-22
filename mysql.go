@@ -57,6 +57,21 @@ func Transaction(times int, anonymous func(execs *Execs) (err error)) error {
 	return Exec().Transaction(times, anonymous)
 }
 
+func FetchOne(any interface{}, prepare string, args ...interface{}) (err error) {
+	err = Exec().Prepare(prepare).Args(args...).FetchOne(any)
+	return
+}
+
+func FetchAll(any interface{}, prepare string, args ...interface{}) (err error) {
+	err = Exec().Prepare(prepare).Args(args...).FetchAll(any)
+	return
+}
+
+func FetchAllPointer(any interface{}, prepare string, args ...interface{}) (err error) {
+	err = Exec().Prepare(prepare).Args(args...).FetchAllPointer(any)
+	return
+}
+
 // Execs mysql database sql statement execute object
 type Execs struct {
 	db      *sql.DB                          // database connection object
@@ -201,5 +216,86 @@ func (s *Execs) Transaction(times int, anonymous func(execs *Execs) (err error))
 		_ = s.Commit()
 		break
 	}
+	return
+}
+
+// FetchOne fetch one line to any *AnyStruct
+func (s *Execs) FetchOne(any interface{}) (err error) {
+	var stmt *sql.Stmt
+	stmt, err = s.Stmt()
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	var rows *sql.Rows
+	rows, err = stmt.Query(s.args...)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	err = ReflectOne(rows, any)
+	if err != nil {
+		return
+	}
+	return
+}
+
+// FetchAll fetch more lines to any *[]AnyStruct
+func (s *Execs) FetchAll(any interface{}) (err error) {
+	var stmt *sql.Stmt
+	stmt, err = s.Stmt()
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	var rows *sql.Rows
+	rows, err = stmt.Query(s.args...)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	err = ReflectAll(rows, any)
+	if err != nil {
+		return
+	}
+	return
+}
+
+// FetchAllPointer fetch more lines to any *[]*AnyStruct
+func (s *Execs) FetchAllPointer(any interface{}) (err error) {
+	var stmt *sql.Stmt
+	stmt, err = s.Stmt()
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	var rows *sql.Rows
+	rows, err = stmt.Query(s.args...)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	err = ReflectAllPointer(rows, any)
+	if err != nil {
+		return
+	}
+	return
+}
+
+// OneStepFetchOne fetch one line to any *AnyStruct
+func (s *Execs) OneStepFetchOne(any interface{}, prepare string, args ...interface{}) (err error) {
+	err = s.Prepare(prepare).Args(args...).FetchOne(any)
+	return
+}
+
+// OneStepFetchAll fetch more lines to any *[]AnyStruct
+func (s *Execs) OneStepFetchAll(any interface{}, prepare string, args ...interface{}) (err error) {
+	err = s.Prepare(prepare).Args(args...).FetchAll(any)
+	return
+}
+
+// OneStepFetchAllPointer fetch more lines to any *[]*AnyStruct
+func (s *Execs) OneStepFetchAllPointer(any interface{}, prepare string, args ...interface{}) (err error) {
+	err = s.Prepare(prepare).Args(args...).FetchAllPointer(any)
 	return
 }
