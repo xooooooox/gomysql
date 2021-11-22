@@ -58,17 +58,17 @@ func Transaction(times int, anonymous func(execs *Execs) (err error)) error {
 }
 
 func FetchOne(any interface{}, prepare string, args ...interface{}) (err error) {
-	err = Exec().Prepare(prepare).Args(args...).FetchOne(any)
+	err = Exec().OneStepFetchOne(any, prepare, args...)
 	return
 }
 
 func FetchAll(any interface{}, prepare string, args ...interface{}) (err error) {
-	err = Exec().Prepare(prepare).Args(args...).FetchAll(any)
+	err = Exec().OneStepFetchAll(any, prepare, args...)
 	return
 }
 
 func FetchAllPointer(any interface{}, prepare string, args ...interface{}) (err error) {
-	err = Exec().Prepare(prepare).Args(args...).FetchAllPointer(any)
+	err = Exec().OneStepFetchAllPointer(any, prepare, args...)
 	return
 }
 

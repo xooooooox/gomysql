@@ -5,14 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 // NoMatchLineFound no match line found
-var NoMatchLineFound = errors.New("sql: no match line found")
+var NoMatchLineFound = errors.New("mysql: no match line found")
 
 // ColumnNamingChangeRuleAtReflectQueryScan when query scanning, name conversion
 var ColumnNamingChangeRuleAtReflectQueryScan = func(name string) string {
-	return UnderlineToPascal(name)
+	return UnderlineToPascal(strings.ToLower(name))
 }
 
 // ReflectOne any type: *AnyStruct
