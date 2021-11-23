@@ -240,7 +240,7 @@ func (s *Execs) FetchOne(any interface{}) (err error) {
 	return
 }
 
-// FetchAll fetch more lines to any *[]AnyStruct
+// FetchAll fetch more lines to any *[]AnyStruct | *[]*AnyStruct
 func (s *Execs) FetchAll(any interface{}) (err error) {
 	var stmt *sql.Stmt
 	stmt, err = s.Stmt()
@@ -267,7 +267,7 @@ func (s *Execs) OneStepFetchOne(any interface{}, prepare string, args ...interfa
 	return
 }
 
-// OneStepFetchAll fetch more lines to any *[]AnyStruct
+// OneStepFetchAll fetch more lines to any *[]AnyStruct | *[]*AnyStruct
 func (s *Execs) OneStepFetchAll(any interface{}, prepare string, args ...interface{}) (err error) {
 	err = s.Prepare(prepare).Args(args...).FetchAll(any)
 	return
