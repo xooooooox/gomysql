@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-// NoMatchLineFound no match line found
-var NoMatchLineFound = errors.New("mysql: no match line found")
+// ErrNoMatchLineFound no match line found
+var ErrNoMatchLineFound = errors.New("go-mysql: no match line found")
 
 // ColumnNamingChangeRuleAtReflectQueryScan when query scanning, name conversion
 var ColumnNamingChangeRuleAtReflectQueryScan = func(name string) string {
@@ -34,7 +34,7 @@ func ReflectOne(rows *sql.Rows, any interface{}) (err error) {
 		return
 	}
 	if !rows.Next() {
-		err = NoMatchLineFound
+		err = ErrNoMatchLineFound
 		return
 	}
 	var field reflect.Value
@@ -111,7 +111,7 @@ func ReflectAll(rows *sql.Rows, any interface{}) (err error) {
 		slices = reflect.Append(slices, lines.Elem())
 	}
 	if slices.Len() == 0 {
-		err = NoMatchLineFound
+		err = ErrNoMatchLineFound
 	}
 	reflect.ValueOf(any).Elem().Set(slices)
 	return
@@ -172,7 +172,7 @@ func ReflectAllPointer(rows *sql.Rows, any interface{}) (err error) {
 		slices = reflect.Append(slices, lines)
 	}
 	if slices.Len() == 0 {
-		err = NoMatchLineFound
+		err = ErrNoMatchLineFound
 	}
 	reflect.ValueOf(any).Elem().Set(slices)
 	return

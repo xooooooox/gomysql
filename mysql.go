@@ -12,8 +12,8 @@ import (
 // db database object
 var db *sql.DB
 
-// ErrorTransactionNotOpened transaction not opened
-var ErrorTransactionNotOpened = errors.New("mysql: please open the transaction first")
+// ErrTransactionNotOpened transaction not opened
+var ErrTransactionNotOpened = errors.New("go-mysql: please open the transaction first")
 
 // Open connect to mysql service, auto set database connect; dsn: runner:112233@tcp(127.0.0.1:3306)/running?charset=utf8mb4&collation=utf8mb4_unicode_ci
 func Open(dsn string) (err error) {
@@ -88,7 +88,7 @@ func (s *Execs) Begin() (err error) {
 
 func (s *Execs) Rollback() (err error) {
 	if s.tx == nil {
-		err = ErrorTransactionNotOpened
+		err = ErrTransactionNotOpened
 		return
 	}
 	err = s.tx.Rollback()
@@ -98,7 +98,7 @@ func (s *Execs) Rollback() (err error) {
 
 func (s *Execs) Commit() (err error) {
 	if s.tx == nil {
-		err = ErrorTransactionNotOpened
+		err = ErrTransactionNotOpened
 		return
 	}
 	err = s.tx.Commit()
