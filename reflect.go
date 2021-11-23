@@ -11,13 +11,13 @@ import (
 // ErrNoMatchLineFound no match line found
 var ErrNoMatchLineFound = errors.New("go-mysql: no match line found")
 
-// ScanColumnNameToStructName when query scanning, name conversion
-var ScanColumnNameToStructName = func(name string) string {
+// defaultColumnNameChangeToStructName when query scanning, database column name change to go struct name
+var defaultColumnNameChangeToStructName = func(name string) string {
 	return UnderlineToPascal(strings.ToLower(name))
 }
 
 // ScanOne any type: *AnyStruct
-func ScanOne(any interface{}, rows *sql.Rows) (err error) {
+func ScanOne(any interface{}, rows *sql.Rows, change func(name string) string) (err error) {
 	prt := reflect.TypeOf(any)
 	if prt.Kind() != reflect.Ptr {
 		err = errors.New("go-mysql: `any` is not pointer")
@@ -39,8 +39,11 @@ func ScanOne(any interface{}, rows *sql.Rows) (err error) {
 	}
 	var index int
 	var column string
+	if change == nil {
+		change = defaultColumnNameChangeToStructName
+	}
 	for index, column = range columns {
-		columns[index] = ScanColumnNameToStructName(column)
+		columns[index] = change(column)
 	}
 	var field reflect.Value
 	line := reflect.Indirect(reflect.New(rt))
@@ -72,7 +75,7 @@ func ScanOne(any interface{}, rows *sql.Rows) (err error) {
 }
 
 // ScanAll any type: *[]AnyStruct | *[]*AnyStruct
-func ScanAll(any interface{}, rows *sql.Rows) (err error) {
+func ScanAll(any interface{}, rows *sql.Rows, change func(name string) string) (err error) {
 	prt := reflect.TypeOf(any)
 	if prt.Kind() != reflect.Ptr {
 		err = errors.New("go-mysql: `any` is not pointer")
@@ -88,14 +91,14 @@ func ScanAll(any interface{}, rows *sql.Rows) (err error) {
 		prt3 := prt2.Elem()
 		if prt3.Kind() == reflect.Struct {
 			// slice element is struct pointer
-			err = ScanAll2(any, rows)
+			err = ScanAll2(any, rows, change)
 		} else {
 			err = errors.New("go-mysql: `any` slice element is neither a struct nor a struct pointer")
 			return
 		}
 	} else if prt2.Kind() == reflect.Struct {
 		// slice element is struct
-		err = ScanAll1(any, rows)
+		err = ScanAll1(any, rows, change)
 	} else {
 		err = errors.New("go-mysql: `any` slice element is neither a struct nor a struct pointer")
 		return
@@ -104,7 +107,7 @@ func ScanAll(any interface{}, rows *sql.Rows) (err error) {
 }
 
 // ScanAll1 any type: *[]AnyStruct, it is recommended to call ScanAll
-func ScanAll1(any interface{}, rows *sql.Rows) (err error) {
+func ScanAll1(any interface{}, rows *sql.Rows, change func(name string) string) (err error) {
 	var columns []string
 	columns, err = rows.Columns()
 	if err != nil {
@@ -112,8 +115,11 @@ func ScanAll1(any interface{}, rows *sql.Rows) (err error) {
 	}
 	var index int
 	var column string
+	if change == nil {
+		change = defaultColumnNameChangeToStructName
+	}
 	for index, column = range columns {
-		columns[index] = ScanColumnNameToStructName(column)
+		columns[index] = change(column)
 	}
 	var line reflect.Value
 	var value reflect.Value
@@ -157,7 +163,7 @@ func ScanAll1(any interface{}, rows *sql.Rows) (err error) {
 }
 
 // ScanAll2 any type: *[]*AnyStruct, it is recommended to call ScanAll
-func ScanAll2(any interface{}, rows *sql.Rows) (err error) {
+func ScanAll2(any interface{}, rows *sql.Rows, change func(name string) string) (err error) {
 	var columns []string
 	columns, err = rows.Columns()
 	if err != nil {
@@ -165,8 +171,11 @@ func ScanAll2(any interface{}, rows *sql.Rows) (err error) {
 	}
 	var index int
 	var column string
+	if change == nil {
+		change = defaultColumnNameChangeToStructName
+	}
 	for index, column = range columns {
-		columns[index] = ScanColumnNameToStructName(column)
+		columns[index] = change(column)
 	}
 	var line reflect.Value
 	var value reflect.Value

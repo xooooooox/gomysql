@@ -74,6 +74,7 @@ type Execs struct {
 	prepare string                           // sql statement to be executed
 	args    []interface{}                    // executed sql parameters
 	scan    func(rows *sql.Rows) (err error) // scan query results
+	change  func(name string) string         // when sql scan column name to struct name
 }
 
 func (s *Execs) Begin() (err error) {
@@ -214,6 +215,10 @@ func (s *Execs) Transaction(times int, anonymous func(execs *Execs) (err error))
 	return
 }
 
+func (s *Execs) Change(change func(name string) string) {
+	s.change = change
+}
+
 // FetchOne fetch one line to any *AnyStruct
 func (s *Execs) FetchOne(any interface{}) (err error) {
 	var stmt *sql.Stmt
@@ -228,7 +233,7 @@ func (s *Execs) FetchOne(any interface{}) (err error) {
 		return
 	}
 	defer rows.Close()
-	err = ScanOne(any, rows)
+	err = ScanOne(any, rows, s.change)
 	if err != nil {
 		return
 	}
@@ -249,7 +254,7 @@ func (s *Execs) FetchAll(any interface{}) (err error) {
 		return
 	}
 	defer rows.Close()
-	err = ScanAll(any, rows)
+	err = ScanAll(any, rows, s.change)
 	if err != nil {
 		return
 	}
