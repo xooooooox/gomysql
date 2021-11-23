@@ -37,15 +37,22 @@ func ScanOne(any interface{}, rows *sql.Rows) (err error) {
 	if err != nil {
 		return
 	}
-	var field reflect.Value
 	var index int
 	var column string
+	for index, column = range columns {
+		columns[index] = ScanColumnNameToStructName(column)
+	}
+	var field reflect.Value
 	line := reflect.Indirect(reflect.New(rt))
 	length := len(columns)
 	scanner := make([]interface{}, length, length)
 	zero := reflect.Value{}
+	cols := map[string]int{}
+	for i := 0; i < line.NumField(); i++ {
+		cols[line.Type().Field(i).Name] = i
+	}
 	for index, column = range columns {
-		field = line.FieldByName(ScanColumnNameToStructName(column))
+		field = line.Field(cols[column])
 		if field == zero {
 			err = fmt.Errorf("struct field `%s` does not match", column)
 			return
@@ -103,21 +110,29 @@ func ScanAll1(any interface{}, rows *sql.Rows) (err error) {
 	if err != nil {
 		return
 	}
-	var lines reflect.Value
-	var values reflect.Value
-	var field reflect.Value
 	var index int
 	var column string
+	for index, column = range columns {
+		columns[index] = ScanColumnNameToStructName(column)
+	}
+	var line reflect.Value
+	var value reflect.Value
+	var field reflect.Value
 	at := reflect.TypeOf(any)
 	slices := reflect.ValueOf(any).Elem()
 	length := len(columns)
 	scanner := make([]interface{}, length, length)
 	zero := reflect.Value{}
+	lines := reflect.Indirect(reflect.New(at.Elem().Elem()))
+	cols := map[string]int{}
+	for i := 0; i < lines.NumField(); i++ {
+		cols[lines.Type().Field(i).Name] = i
+	}
 	for rows.Next() {
-		lines = reflect.New(at.Elem().Elem())
-		values = reflect.Indirect(lines)
+		line = reflect.New(at.Elem().Elem())
+		value = reflect.Indirect(line)
 		for index, column = range columns {
-			field = values.FieldByName(ScanColumnNameToStructName(column))
+			field = value.Field(cols[column])
 			if zero == field {
 				err = fmt.Errorf("struct field `%s` does not match", column)
 				return
@@ -132,7 +147,7 @@ func ScanAll1(any interface{}, rows *sql.Rows) (err error) {
 		if err != nil {
 			return
 		}
-		slices = reflect.Append(slices, lines.Elem())
+		slices = reflect.Append(slices, line.Elem())
 	}
 	if slices.Len() == 0 {
 		err = ErrNoMatchLineFound
@@ -148,21 +163,29 @@ func ScanAll2(any interface{}, rows *sql.Rows) (err error) {
 	if err != nil {
 		return
 	}
-	var lines reflect.Value
-	var values reflect.Value
-	var field reflect.Value
 	var index int
 	var column string
+	for index, column = range columns {
+		columns[index] = ScanColumnNameToStructName(column)
+	}
+	var line reflect.Value
+	var value reflect.Value
+	var field reflect.Value
 	at := reflect.TypeOf(any)
 	slices := reflect.ValueOf(any).Elem()
 	length := len(columns)
 	scanner := make([]interface{}, length, length)
 	zero := reflect.Value{}
+	lines := reflect.Indirect(reflect.New(at.Elem().Elem().Elem()))
+	cols := map[string]int{}
+	for i := 0; i < lines.NumField(); i++ {
+		cols[lines.Type().Field(i).Name] = i
+	}
 	for rows.Next() {
-		lines = reflect.New(at.Elem().Elem().Elem())
-		values = reflect.Indirect(lines)
+		line = reflect.New(at.Elem().Elem().Elem())
+		value = reflect.Indirect(line)
 		for index, column = range columns {
-			field = values.FieldByName(ScanColumnNameToStructName(column))
+			field = value.Field(cols[column])
 			if zero == field {
 				err = fmt.Errorf("struct field `%s` does not match", column)
 				return
@@ -177,7 +200,7 @@ func ScanAll2(any interface{}, rows *sql.Rows) (err error) {
 		if err != nil {
 			return
 		}
-		slices = reflect.Append(slices, lines)
+		slices = reflect.Append(slices, line)
 	}
 	if slices.Len() == 0 {
 		err = ErrNoMatchLineFound
