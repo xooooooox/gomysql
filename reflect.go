@@ -11,8 +11,8 @@ import (
 // ErrNoMatchLineFound no match line found
 var ErrNoMatchLineFound = errors.New("go-mysql: no match line found")
 
-// ColumnNamingChangeRuleAtReflectQueryScan when query scanning, name conversion
-var ColumnNamingChangeRuleAtReflectQueryScan = func(name string) string {
+// ReflectColumnNameToStructName when query scanning, name conversion
+var ReflectColumnNameToStructName = func(name string) string {
 	return UnderlineToPascal(strings.ToLower(name))
 }
 
@@ -28,21 +28,24 @@ func ReflectOne(rows *sql.Rows, any interface{}) (err error) {
 		err = errors.New("`any` is not struct pointer")
 		return
 	}
+	if !rows.Next() {
+		err = ErrNoMatchLineFound
+		return
+	}
 	var columns []string
 	columns, err = rows.Columns()
 	if err != nil {
 		return
 	}
-	if !rows.Next() {
-		err = ErrNoMatchLineFound
-		return
-	}
 	var field reflect.Value
-	var scanner []interface{}
-	zero := reflect.Value{}
+	var index int
+	var column string
 	line := reflect.Indirect(reflect.New(rt))
-	for _, column := range columns {
-		field = line.FieldByName(ColumnNamingChangeRuleAtReflectQueryScan(column))
+	length := len(columns)
+	scanner := make([]interface{}, length, length)
+	zero := reflect.Value{}
+	for index, column = range columns {
+		field = line.FieldByName(ReflectColumnNameToStructName(column))
 		if field == zero {
 			err = fmt.Errorf("struct field `%s` does not match", column)
 			return
@@ -51,7 +54,7 @@ func ReflectOne(rows *sql.Rows, any interface{}) (err error) {
 			err = fmt.Errorf("struct field `%s` cannot set value", column)
 			return
 		}
-		scanner = append(scanner, field.Addr().Interface())
+		scanner[index] = field.Addr().Interface()
 	}
 	err = rows.Scan(scanner...)
 	if err != nil {
@@ -85,24 +88,27 @@ func ReflectAll(rows *sql.Rows, any interface{}) (err error) {
 	}
 	var lines reflect.Value
 	var values reflect.Value
-	var scanner []interface{}
+	var field reflect.Value
+	var index int
+	var column string
 	slices := reflect.ValueOf(any).Elem()
+	length := len(columns)
+	scanner := make([]interface{}, length, length)
 	zero := reflect.Value{}
 	for rows.Next() {
 		lines = reflect.New(trt)
 		values = reflect.Indirect(lines)
-		scanner = []interface{}{}
-		for _, column := range columns {
-			filed := values.FieldByName(ColumnNamingChangeRuleAtReflectQueryScan(column))
-			if zero == filed {
+		for index, column = range columns {
+			field = values.FieldByName(ReflectColumnNameToStructName(column))
+			if zero == field {
 				err = fmt.Errorf("struct field `%s` does not match", column)
 				return
 			}
-			if !filed.CanSet() {
+			if !field.CanSet() {
 				err = fmt.Errorf("struct field `%s` cannot set value", column)
 				return
 			}
-			scanner = append(scanner, filed.Addr().Interface())
+			scanner[index] = field.Addr().Interface()
 		}
 		err = rows.Scan(scanner...)
 		if err != nil {
@@ -146,24 +152,27 @@ func ReflectAllPointer(rows *sql.Rows, any interface{}) (err error) {
 	}
 	var lines reflect.Value
 	var values reflect.Value
-	var scanner []interface{}
+	var field reflect.Value
+	var index int
+	var column string
 	slices := reflect.ValueOf(any).Elem()
+	length := len(columns)
+	scanner := make([]interface{}, length, length)
 	zero := reflect.Value{}
 	for rows.Next() {
 		lines = reflect.New(trt)
 		values = reflect.Indirect(lines)
-		scanner = []interface{}{}
-		for _, column := range columns {
-			filed := values.FieldByName(ColumnNamingChangeRuleAtReflectQueryScan(column))
-			if zero == filed {
+		for index, column = range columns {
+			field = values.FieldByName(ReflectColumnNameToStructName(column))
+			if zero == field {
 				err = fmt.Errorf("struct field `%s` does not match", column)
 				return
 			}
-			if !filed.CanSet() {
+			if !field.CanSet() {
 				err = fmt.Errorf("struct field `%s` cannot set value", column)
 				return
 			}
-			scanner = append(scanner, filed.Addr().Interface())
+			scanner[index] = field.Addr().Interface()
 		}
 		err = rows.Scan(scanner...)
 		if err != nil {
