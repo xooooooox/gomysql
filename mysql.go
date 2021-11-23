@@ -67,11 +67,6 @@ func FetchAll(any interface{}, prepare string, args ...interface{}) (err error) 
 	return
 }
 
-func FetchAllPointer(any interface{}, prepare string, args ...interface{}) (err error) {
-	err = Exec().OneStepFetchAllPointer(any, prepare, args...)
-	return
-}
-
 // Execs mysql database sql statement execute object
 type Execs struct {
 	db      *sql.DB                          // database connection object
@@ -233,7 +228,7 @@ func (s *Execs) FetchOne(any interface{}) (err error) {
 		return
 	}
 	defer rows.Close()
-	err = ReflectOne(rows, any)
+	err = ScanOne(any, rows)
 	if err != nil {
 		return
 	}
@@ -254,28 +249,7 @@ func (s *Execs) FetchAll(any interface{}) (err error) {
 		return
 	}
 	defer rows.Close()
-	err = ReflectAll(rows, any)
-	if err != nil {
-		return
-	}
-	return
-}
-
-// FetchAllPointer fetch more lines to any *[]*AnyStruct
-func (s *Execs) FetchAllPointer(any interface{}) (err error) {
-	var stmt *sql.Stmt
-	stmt, err = s.Stmt()
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
-	var rows *sql.Rows
-	rows, err = stmt.Query(s.args...)
-	if err != nil {
-		return
-	}
-	defer rows.Close()
-	err = ReflectAllPointer(rows, any)
+	err = ScanAll(any, rows)
 	if err != nil {
 		return
 	}
@@ -291,11 +265,5 @@ func (s *Execs) OneStepFetchOne(any interface{}, prepare string, args ...interfa
 // OneStepFetchAll fetch more lines to any *[]AnyStruct
 func (s *Execs) OneStepFetchAll(any interface{}, prepare string, args ...interface{}) (err error) {
 	err = s.Prepare(prepare).Args(args...).FetchAll(any)
-	return
-}
-
-// OneStepFetchAllPointer fetch more lines to any *[]*AnyStruct
-func (s *Execs) OneStepFetchAllPointer(any interface{}, prepare string, args ...interface{}) (err error) {
-	err = s.Prepare(prepare).Args(args...).FetchAllPointer(any)
 	return
 }
