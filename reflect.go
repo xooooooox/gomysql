@@ -49,17 +49,19 @@ func ScanOne(any interface{}, rows *sql.Rows, change func(name string) string) (
 	line := reflect.Indirect(reflect.New(rt))
 	length := len(columns)
 	scanner := make([]interface{}, length, length)
-	zero := reflect.Value{}
 	cols := map[string]int{}
 	for i := 0; i < line.NumField(); i++ {
 		cols[line.Type().Field(i).Name] = i
 	}
+	var serial int
+	var ok bool
 	for index, column = range columns {
-		field = line.Field(cols[column])
-		if field == zero {
+		serial, ok = cols[column]
+		if !ok {
 			err = fmt.Errorf("struct field `%s` does not match", column)
 			return
 		}
+		field = line.Field(serial)
 		if !field.CanSet() {
 			err = fmt.Errorf("struct field `%s` cannot set value", column)
 			return
@@ -128,21 +130,23 @@ func ScanAll1(any interface{}, rows *sql.Rows, change func(name string) string) 
 	slices := reflect.ValueOf(any).Elem()
 	length := len(columns)
 	scanner := make([]interface{}, length, length)
-	zero := reflect.Value{}
 	lines := reflect.Indirect(reflect.New(at.Elem().Elem()))
 	cols := map[string]int{}
 	for i := 0; i < lines.NumField(); i++ {
 		cols[lines.Type().Field(i).Name] = i
 	}
+	var serial int
+	var ok bool
 	for rows.Next() {
 		line = reflect.New(at.Elem().Elem())
 		value = reflect.Indirect(line)
 		for index, column = range columns {
-			field = value.Field(cols[column])
-			if zero == field {
+			serial, ok = cols[column]
+			if !ok {
 				err = fmt.Errorf("struct field `%s` does not match", column)
 				return
 			}
+			field = value.Field(serial)
 			if !field.CanSet() {
 				err = fmt.Errorf("struct field `%s` cannot set value", column)
 				return
@@ -184,21 +188,23 @@ func ScanAll2(any interface{}, rows *sql.Rows, change func(name string) string) 
 	slices := reflect.ValueOf(any).Elem()
 	length := len(columns)
 	scanner := make([]interface{}, length, length)
-	zero := reflect.Value{}
 	lines := reflect.Indirect(reflect.New(at.Elem().Elem().Elem()))
 	cols := map[string]int{}
 	for i := 0; i < lines.NumField(); i++ {
 		cols[lines.Type().Field(i).Name] = i
 	}
+	var serial int
+	var ok bool
 	for rows.Next() {
 		line = reflect.New(at.Elem().Elem().Elem())
 		value = reflect.Indirect(line)
 		for index, column = range columns {
-			field = value.Field(cols[column])
-			if zero == field {
+			serial, ok = cols[column]
+			if !ok {
 				err = fmt.Errorf("struct field `%s` does not match", column)
 				return
 			}
+			field = value.Field(serial)
 			if !field.CanSet() {
 				err = fmt.Errorf("struct field `%s` cannot set value", column)
 				return
