@@ -8,15 +8,18 @@ import (
 	"strings"
 )
 
-// ErrNoMatchLineFound no match line found
+// ErrNoMatchLineFound no match line found.
 var ErrNoMatchLineFound = errors.New("go-mysql: no match line found")
 
-// defaultColumnNameChangeToStructName when query scanning, database column name change to go struct name
+// defaultColumnNameChangeToStructName when query scanning, database column name change to go struct name.
 var defaultColumnNameChangeToStructName = func(name string) string {
 	return UnderlineToPascal(strings.ToLower(name))
 }
 
-// ScanOne any type: *AnyStruct
+//
+// Deprecated: Use Scanning instead.
+//
+// ScanOne any type: *AnyStruct.
 func ScanOne(any interface{}, rows *sql.Rows, change func(name string) string) (err error) {
 	prt := reflect.TypeOf(any)
 	if prt.Kind() != reflect.Ptr {
@@ -76,7 +79,10 @@ func ScanOne(any interface{}, rows *sql.Rows, change func(name string) string) (
 	return
 }
 
-// ScanAll any type: *[]AnyStruct | *[]*AnyStruct
+//
+// Deprecated: Use Scanning instead.
+//
+// ScanAll any type: *[]AnyStruct | *[]*AnyStruct.
 func ScanAll(any interface{}, rows *sql.Rows, change func(name string) string) (err error) {
 	prt := reflect.TypeOf(any)
 	if prt.Kind() != reflect.Ptr {
@@ -108,7 +114,10 @@ func ScanAll(any interface{}, rows *sql.Rows, change func(name string) string) (
 	return
 }
 
-// ScanAll1 any type: *[]AnyStruct, it is recommended to call ScanAll
+//
+// Deprecated: Use Scanning instead.
+//
+// ScanAll1 any type: *[]AnyStruct, it is recommended to call ScanAll.
 func ScanAll1(any interface{}, rows *sql.Rows, change func(name string) string) (err error) {
 	var columns []string
 	columns, err = rows.Columns()
@@ -166,7 +175,10 @@ func ScanAll1(any interface{}, rows *sql.Rows, change func(name string) string) 
 	return
 }
 
-// ScanAll2 any type: *[]*AnyStruct, it is recommended to call ScanAll
+//
+// Deprecated: Use Scanning instead.
+//
+// ScanAll2 any type: *[]*AnyStruct, it is recommended to call ScanAll.
 func ScanAll2(any interface{}, rows *sql.Rows, change func(name string) string) (err error) {
 	var columns []string
 	columns, err = rows.Columns()
@@ -221,5 +233,181 @@ func ScanAll2(any interface{}, rows *sql.Rows, change func(name string) string) 
 		err = ErrNoMatchLineFound
 	}
 	reflect.ValueOf(any).Elem().Set(slices)
+	return
+}
+
+// Scanning scan one or more rows.
+func Scanning(any interface{}, rows *sql.Rows, change func(name string) string) (err error) {
+	tp1 := reflect.TypeOf(any)
+	if tp1.Kind() != reflect.Ptr {
+		err = errors.New("go-mysql: receive variable is not a pointer")
+		return
+	}
+	tp2 := tp1.Elem()
+	err = fmt.Errorf("go-mysql: unsupported receive variable type *%s", tp2.Name())
+	switch tp2.Kind() {
+	// scan one row
+	case reflect.Struct:
+		if !rows.Next() {
+			err = ErrNoMatchLineFound
+			return
+		}
+		var columns []string
+		columns, err = rows.Columns()
+		if err != nil {
+			return
+		}
+		var index int
+		var column string
+		if change == nil {
+			change = defaultColumnNameChangeToStructName
+		}
+		for index, column = range columns {
+			columns[index] = change(column)
+		}
+		var field reflect.Value
+		line := reflect.Indirect(reflect.New(tp2))
+		length := len(columns)
+		scanner := make([]interface{}, length, length)
+		cols := map[string]int{}
+		for i := 0; i < line.NumField(); i++ {
+			cols[line.Type().Field(i).Name] = i
+		}
+		var serial int
+		var ok bool
+		for index, column = range columns {
+			serial, ok = cols[column]
+			if !ok {
+				err = fmt.Errorf("struct field `%s` does not match", column)
+				return
+			}
+			field = line.Field(serial)
+			if !field.CanSet() {
+				err = fmt.Errorf("struct field `%s` cannot set value", column)
+				return
+			}
+			scanner[index] = field.Addr().Interface()
+		}
+		err = rows.Scan(scanner...)
+		if err != nil {
+			return
+		}
+		reflect.ValueOf(any).Elem().Set(line)
+	// scan more rows
+	case reflect.Slice:
+		tp3 := tp2.Elem()
+		switch tp3.Kind() {
+		case reflect.Ptr:
+			if tp3.Elem().Kind() == reflect.Struct {
+				var columns []string
+				columns, err = rows.Columns()
+				if err != nil {
+					return
+				}
+				var index int
+				var column string
+				if change == nil {
+					change = defaultColumnNameChangeToStructName
+				}
+				for index, column = range columns {
+					columns[index] = change(column)
+				}
+				var line reflect.Value
+				var value reflect.Value
+				var field reflect.Value
+				slices := reflect.ValueOf(any).Elem()
+				length := len(columns)
+				scanner := make([]interface{}, length, length)
+				lines := reflect.Indirect(reflect.New(tp1.Elem().Elem().Elem()))
+				cols := map[string]int{}
+				for i := 0; i < lines.NumField(); i++ {
+					cols[lines.Type().Field(i).Name] = i
+				}
+				var serial int
+				var ok bool
+				for rows.Next() {
+					line = reflect.New(tp1.Elem().Elem().Elem())
+					value = reflect.Indirect(line)
+					for index, column = range columns {
+						serial, ok = cols[column]
+						if !ok {
+							err = fmt.Errorf("struct field `%s` does not match", column)
+							return
+						}
+						field = value.Field(serial)
+						if !field.CanSet() {
+							err = fmt.Errorf("struct field `%s` cannot set value", column)
+							return
+						}
+						scanner[index] = field.Addr().Interface()
+					}
+					err = rows.Scan(scanner...)
+					if err != nil {
+						return
+					}
+					slices = reflect.Append(slices, line)
+				}
+				if slices.Len() == 0 {
+					err = ErrNoMatchLineFound
+				}
+				reflect.ValueOf(any).Elem().Set(slices)
+			}
+		case reflect.Struct:
+			var columns []string
+			columns, err = rows.Columns()
+			if err != nil {
+				return
+			}
+			var index int
+			var column string
+			if change == nil {
+				change = defaultColumnNameChangeToStructName
+			}
+			for index, column = range columns {
+				columns[index] = change(column)
+			}
+			var line reflect.Value
+			var value reflect.Value
+			var field reflect.Value
+			slices := reflect.ValueOf(any).Elem()
+			length := len(columns)
+			scanner := make([]interface{}, length, length)
+			lines := reflect.Indirect(reflect.New(tp1.Elem().Elem()))
+			cols := map[string]int{}
+			for i := 0; i < lines.NumField(); i++ {
+				cols[lines.Type().Field(i).Name] = i
+			}
+			var serial int
+			var ok bool
+			for rows.Next() {
+				line = reflect.New(tp1.Elem().Elem())
+				value = reflect.Indirect(line)
+				for index, column = range columns {
+					serial, ok = cols[column]
+					if !ok {
+						err = fmt.Errorf("struct field `%s` does not match", column)
+						return
+					}
+					field = value.Field(serial)
+					if !field.CanSet() {
+						err = fmt.Errorf("struct field `%s` cannot set value", column)
+						return
+					}
+					scanner[index] = field.Addr().Interface()
+				}
+				err = rows.Scan(scanner...)
+				if err != nil {
+					return
+				}
+				slices = reflect.Append(slices, line.Elem())
+			}
+			if slices.Len() == 0 {
+				err = ErrNoMatchLineFound
+			}
+			reflect.ValueOf(any).Elem().Set(slices)
+		default:
+		}
+	default:
+	}
 	return
 }

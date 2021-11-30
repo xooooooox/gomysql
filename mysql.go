@@ -35,35 +35,30 @@ func Db1() *sql.DB {
 	return db
 }
 
-func Exec() *Execs {
+func Db2() *Execs {
 	return &Execs{
 		db: db,
 	}
 }
 
 func Query(anonymous func(rows *sql.Rows) (err error), prepare string, args ...interface{}) error {
-	return Exec().OneStepQuery(anonymous, prepare, args...)
+	return Db2().RightQuery(anonymous, prepare, args...)
 }
 
 func Execute(prepare string, args ...interface{}) (int64, error) {
-	return Exec().OneStepExecute(prepare, args...)
-}
-
-func AddOne(prepare string, args ...interface{}) (int64, error) {
-	return Exec().OneStepAddOne(prepare, args...)
+	return Db2().RightExecute(prepare, args...)
 }
 
 func Transaction(times int, anonymous func(execs *Execs) (err error)) error {
-	return Exec().Transaction(times, anonymous)
+	return Db2().Transaction(times, anonymous)
 }
 
-func FetchOne(any interface{}, prepare string, args ...interface{}) (err error) {
-	err = Exec().OneStepFetchOne(any, prepare, args...)
-	return
+func Create(prepare string, args ...interface{}) (int64, error) {
+	return Db2().RightCreate(prepare, args...)
 }
 
-func FetchAll(any interface{}, prepare string, args ...interface{}) (err error) {
-	err = Exec().OneStepFetchAll(any, prepare, args...)
+func Fetch(any interface{}, prepare string, args ...interface{}) (err error) {
+	err = Db2().RightFetch(any, prepare, args...)
 	return
 }
 
@@ -74,7 +69,7 @@ type Execs struct {
 	prepare string                           // sql statement to be executed
 	args    []interface{}                    // executed sql parameters
 	scan    func(rows *sql.Rows) (err error) // scan query results
-	change  func(name string) string         // when sql scan column name to struct name
+	change  func(name string) string         // when driver scan column name to struct name
 }
 
 func (s *Execs) Begin() (err error) {
@@ -126,7 +121,7 @@ func (s *Execs) Stmt() (stmt *sql.Stmt, err error) {
 	return
 }
 
-func (s *Execs) FetchSql() (prepare string, args []interface{}) {
+func (s *Execs) PrepareArgs() (prepare string, args []interface{}) {
 	prepare, args = s.prepare, s.args
 	return
 }
@@ -164,7 +159,7 @@ func (s *Execs) Execute() (rowsAffected int64, err error) {
 	return
 }
 
-func (s *Execs) AddOne() (lastId int64, err error) {
+func (s *Execs) Create() (lastId int64, err error) {
 	var stmt *sql.Stmt
 	stmt, err = s.Stmt()
 	if err != nil {
@@ -180,17 +175,17 @@ func (s *Execs) AddOne() (lastId int64, err error) {
 	return
 }
 
-func (s *Execs) OneStepQuery(anonymous func(rows *sql.Rows) (err error), prepare string, args ...interface{}) (err error) {
+func (s *Execs) RightQuery(anonymous func(rows *sql.Rows) (err error), prepare string, args ...interface{}) (err error) {
 	err = s.Scan(anonymous).Prepare(prepare).Args(args...).Query()
 	return
 }
 
-func (s *Execs) OneStepExecute(prepare string, args ...interface{}) (int64, error) {
+func (s *Execs) RightExecute(prepare string, args ...interface{}) (int64, error) {
 	return s.Prepare(prepare).Args(args...).Execute()
 }
 
-func (s *Execs) OneStepAddOne(prepare string, args ...interface{}) (int64, error) {
-	return s.Prepare(prepare).Args(args...).AddOne()
+func (s *Execs) RightCreate(prepare string, args ...interface{}) (int64, error) {
+	return s.Prepare(prepare).Args(args...).Create()
 }
 
 // Transaction closure execute transaction, automatic rollback on error
@@ -219,8 +214,8 @@ func (s *Execs) Change(change func(name string) string) {
 	s.change = change
 }
 
-// FetchOne fetch one line to any *AnyStruct
-func (s *Execs) FetchOne(any interface{}) (err error) {
+// Fetch scan one or more rows to interface{}
+func (s *Execs) Fetch(any interface{}) (err error) {
 	var stmt *sql.Stmt
 	stmt, err = s.Stmt()
 	if err != nil {
@@ -233,42 +228,14 @@ func (s *Execs) FetchOne(any interface{}) (err error) {
 		return
 	}
 	defer rows.Close()
-	err = ScanOne(any, rows, s.change)
+	err = Scanning(any, rows, s.change)
 	if err != nil {
 		return
 	}
 	return
 }
 
-// FetchAll fetch more lines to any *[]AnyStruct | *[]*AnyStruct
-func (s *Execs) FetchAll(any interface{}) (err error) {
-	var stmt *sql.Stmt
-	stmt, err = s.Stmt()
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
-	var rows *sql.Rows
-	rows, err = stmt.Query(s.args...)
-	if err != nil {
-		return
-	}
-	defer rows.Close()
-	err = ScanAll(any, rows, s.change)
-	if err != nil {
-		return
-	}
-	return
-}
-
-// OneStepFetchOne fetch one line to any *AnyStruct
-func (s *Execs) OneStepFetchOne(any interface{}, prepare string, args ...interface{}) (err error) {
-	err = s.Prepare(prepare).Args(args...).FetchOne(any)
-	return
-}
-
-// OneStepFetchAll fetch more lines to any *[]AnyStruct | *[]*AnyStruct
-func (s *Execs) OneStepFetchAll(any interface{}, prepare string, args ...interface{}) (err error) {
-	err = s.Prepare(prepare).Args(args...).FetchAll(any)
+func (s *Execs) RightFetch(any interface{}, prepare string, args ...interface{}) (err error) {
+	err = s.Prepare(prepare).Args(args...).Fetch(any)
 	return
 }
