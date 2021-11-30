@@ -16,6 +16,10 @@ var defaultColumnNameChangeToStructName = func(name string) string {
 	return UnderlineToPascal(strings.ToLower(name))
 }
 
+func SetColumnNameChangeToStructName(name func(name string) string) {
+	defaultColumnNameChangeToStructName = name
+}
+
 //
 // Deprecated: Use Scanning instead.
 //
