@@ -9,6 +9,10 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+const (
+	Backtick = "`"
+)
+
 // db database object
 var db *sql.DB
 
