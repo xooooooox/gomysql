@@ -193,7 +193,7 @@ func (s *Execs) RightCreate(prepare string, args ...interface{}) (int64, error) 
 }
 
 // Transaction closure execute transaction, automatic rollback on error
-func (s *Execs) Transaction(times int, anonymous func(execs *Execs) (err error)) (err error) {
+func (s *Execs) Transaction(times int, anonymous func(e *Execs) (err error)) (err error) {
 	if times <= 0 {
 		err = fmt.Errorf("mysql: the number of transactions executed by the database has been used up")
 		return
