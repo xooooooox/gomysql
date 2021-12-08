@@ -11,13 +11,24 @@ import (
 // ErrNoMatchLineFound no match line found.
 var ErrNoMatchLineFound = errors.New("go-mysql: no match line found")
 
-// defaultColumnNameChangeToStructName when query scanning, database column name change to go struct name.
-var defaultColumnNameChangeToStructName = func(name string) string {
+// defaultColumnNameToStructAttributeName when query scanning, database table column name change to go struct attribute name.
+var defaultColumnNameToStructAttributeName = func(name string) string {
 	return UnderlineToPascal(strings.ToLower(name))
 }
 
-func SetColumnNameChangeToStructName(name func(name string) string) {
-	defaultColumnNameChangeToStructName = name
+// SetColumnNameToStructAttributeName when query scanning, database table column name change to go struct attribute name.
+func SetColumnNameToStructAttributeName(name func(name string) string) {
+	defaultColumnNameToStructAttributeName = name
+}
+
+// defaultStructAttributeNameToColumnName when execute insert, go struct attribute name change to database table column name.
+var defaultStructAttributeNameToColumnName = func(name string) string {
+	return PascalToUnderline(name)
+}
+
+// SetStructAttributeNameToColumnName when execute insert, go struct attribute name change to database table column name.
+func SetStructAttributeNameToColumnName(name func(name string) string) {
+	defaultStructAttributeNameToColumnName = name
 }
 
 //
@@ -47,7 +58,7 @@ func ScanOne(any interface{}, rows *sql.Rows, change func(name string) string) (
 	var index int
 	var column string
 	if change == nil {
-		change = defaultColumnNameChangeToStructName
+		change = defaultColumnNameToStructAttributeName
 	}
 	for index, column = range columns {
 		columns[index] = change(column)
@@ -131,7 +142,7 @@ func ScanAll1(any interface{}, rows *sql.Rows, change func(name string) string) 
 	var index int
 	var column string
 	if change == nil {
-		change = defaultColumnNameChangeToStructName
+		change = defaultColumnNameToStructAttributeName
 	}
 	for index, column = range columns {
 		columns[index] = change(column)
@@ -192,7 +203,7 @@ func ScanAll2(any interface{}, rows *sql.Rows, change func(name string) string) 
 	var index int
 	var column string
 	if change == nil {
-		change = defaultColumnNameChangeToStructName
+		change = defaultColumnNameToStructAttributeName
 	}
 	for index, column = range columns {
 		columns[index] = change(column)
@@ -264,7 +275,7 @@ func Scanning(any interface{}, rows *sql.Rows, change func(name string) string) 
 		var index int
 		var column string
 		if change == nil {
-			change = defaultColumnNameChangeToStructName
+			change = defaultColumnNameToStructAttributeName
 		}
 		for index, column = range columns {
 			columns[index] = change(column)
@@ -311,7 +322,7 @@ func Scanning(any interface{}, rows *sql.Rows, change func(name string) string) 
 				var index int
 				var column string
 				if change == nil {
-					change = defaultColumnNameChangeToStructName
+					change = defaultColumnNameToStructAttributeName
 				}
 				for index, column = range columns {
 					columns[index] = change(column)
@@ -365,7 +376,7 @@ func Scanning(any interface{}, rows *sql.Rows, change func(name string) string) 
 			var index int
 			var column string
 			if change == nil {
-				change = defaultColumnNameChangeToStructName
+				change = defaultColumnNameToStructAttributeName
 			}
 			for index, column = range columns {
 				columns[index] = change(column)

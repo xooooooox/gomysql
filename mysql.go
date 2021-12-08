@@ -3,7 +3,6 @@ package gomysql
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -39,49 +38,49 @@ func Db1() *sql.DB {
 	return db
 }
 
-func Db2() *Execs {
-	return &Execs{
+func Db2() *Hat {
+	return &Hat{
 		db: db,
 	}
 }
 
 func Query(anonymous func(rows *sql.Rows) (err error), prepare string, args ...interface{}) error {
-	return Db2().RightQuery(anonymous, prepare, args...)
+	return Db2().Scan(anonymous).Prepare(prepare).Args(args...).Query()
 }
 
 func Execute(prepare string, args ...interface{}) (int64, error) {
-	return Db2().RightExecute(prepare, args...)
+	return Db2().Prepare(prepare).Args(args...).Execute()
 }
 
-func Transaction(times int, anonymous func(execs *Execs) (err error)) error {
-	return Db2().Transaction(times, anonymous)
+func Transaction(anonymous func(execs *Hat) (err error)) error {
+	return Db2().Transaction(anonymous)
 }
 
 func Create(prepare string, args ...interface{}) (int64, error) {
-	return Db2().RightCreate(prepare, args...)
+	return Db2().Prepare(prepare).Args(args...).Create()
 }
 
 func Fetch(any interface{}, prepare string, args ...interface{}) (err error) {
-	err = Db2().RightFetch(any, prepare, args...)
-	return
+	return Db2().Prepare(prepare).Args(args...).Fetch(any)
 }
 
-// Execs mysql database sql statement execute object
-type Execs struct {
-	db      *sql.DB                          // database connection object
-	tx      *sql.Tx                          // database transaction object
-	prepare string                           // sql statement to be executed
-	args    []interface{}                    // executed sql parameters
-	scan    func(rows *sql.Rows) (err error) // scan query results
-	change  func(name string) string         // when driver scan column name to struct name
+// Hat mysql database sql statement execute object
+type Hat struct {
+	db               *sql.DB                          // database connection object
+	tx               *sql.Tx                          // database transaction object
+	prepare          string                           // sql statement to be executed
+	args             []interface{}                    // executed sql parameters
+	scan             func(rows *sql.Rows) (err error) // scan query results
+	column2attribute func(name string) string         // when driver scan column, table column name to struct attribute name.
+	attribute2column func(name string) string         // when driver insert table, struct attribute name to table column name.
 }
 
-func (s *Execs) Begin() (err error) {
+func (s *Hat) Begin() (err error) {
 	s.tx, err = s.db.Begin()
 	return
 }
 
-func (s *Execs) Rollback() (err error) {
+func (s *Hat) Rollback() (err error) {
 	if s.tx == nil {
 		err = ErrTransactionNotOpened
 		return
@@ -91,7 +90,7 @@ func (s *Execs) Rollback() (err error) {
 	return
 }
 
-func (s *Execs) Commit() (err error) {
+func (s *Hat) Commit() (err error) {
 	if s.tx == nil {
 		err = ErrTransactionNotOpened
 		return
@@ -101,22 +100,22 @@ func (s *Execs) Commit() (err error) {
 	return
 }
 
-func (s *Execs) Scan(anonymous func(rows *sql.Rows) (err error)) *Execs {
+func (s *Hat) Scan(anonymous func(rows *sql.Rows) (err error)) *Hat {
 	s.scan = anonymous
 	return s
 }
 
-func (s *Execs) Prepare(prepare string) *Execs {
+func (s *Hat) Prepare(prepare string) *Hat {
 	s.prepare = prepare
 	return s
 }
 
-func (s *Execs) Args(args ...interface{}) *Execs {
+func (s *Hat) Args(args ...interface{}) *Hat {
 	s.args = args
 	return s
 }
 
-func (s *Execs) Stmt() (stmt *sql.Stmt, err error) {
+func (s *Hat) stmt() (stmt *sql.Stmt, err error) {
 	if s.tx != nil {
 		stmt, err = s.tx.Prepare(s.prepare)
 	} else {
@@ -125,14 +124,14 @@ func (s *Execs) Stmt() (stmt *sql.Stmt, err error) {
 	return
 }
 
-func (s *Execs) PrepareArgs() (prepare string, args []interface{}) {
+func (s *Hat) PrepareArgs() (prepare string, args []interface{}) {
 	prepare, args = s.prepare, s.args
 	return
 }
 
-func (s *Execs) Query() (err error) {
+func (s *Hat) Query() (err error) {
 	var stmt *sql.Stmt
-	stmt, err = s.Stmt()
+	stmt, err = s.stmt()
 	if err != nil {
 		return
 	}
@@ -147,9 +146,9 @@ func (s *Execs) Query() (err error) {
 	return
 }
 
-func (s *Execs) Execute() (rowsAffected int64, err error) {
+func (s *Hat) Execute() (rowsAffected int64, err error) {
 	var stmt *sql.Stmt
-	stmt, err = s.Stmt()
+	stmt, err = s.stmt()
 	if err != nil {
 		return
 	}
@@ -163,9 +162,9 @@ func (s *Execs) Execute() (rowsAffected int64, err error) {
 	return
 }
 
-func (s *Execs) Create() (lastId int64, err error) {
+func (s *Hat) Create() (lastId int64, err error) {
 	var stmt *sql.Stmt
-	stmt, err = s.Stmt()
+	stmt, err = s.stmt()
 	if err != nil {
 		return
 	}
@@ -179,49 +178,33 @@ func (s *Execs) Create() (lastId int64, err error) {
 	return
 }
 
-func (s *Execs) RightQuery(anonymous func(rows *sql.Rows) (err error), prepare string, args ...interface{}) (err error) {
-	err = s.Scan(anonymous).Prepare(prepare).Args(args...).Query()
-	return
-}
-
-func (s *Execs) RightExecute(prepare string, args ...interface{}) (int64, error) {
-	return s.Prepare(prepare).Args(args...).Execute()
-}
-
-func (s *Execs) RightCreate(prepare string, args ...interface{}) (int64, error) {
-	return s.Prepare(prepare).Args(args...).Create()
-}
-
 // Transaction closure execute transaction, automatic rollback on error
-func (s *Execs) Transaction(times int, anonymous func(e *Execs) (err error)) (err error) {
-	if times <= 0 {
-		err = fmt.Errorf("mysql: the number of transactions executed by the database has been used up")
+func (s *Hat) Transaction(anonymous func(e *Hat) (err error)) (err error) {
+	err = s.Begin()
+	if err != nil {
 		return
 	}
-	for i := 0; i < times; i++ {
-		err = s.Begin()
-		if err != nil {
-			continue
-		}
-		err = anonymous(s)
-		if err != nil {
-			_ = s.Rollback()
-			continue
-		}
-		_ = s.Commit()
-		break
+	err = anonymous(s)
+	if err != nil {
+		_ = s.Rollback()
+		return
 	}
+	_ = s.Commit()
 	return
 }
 
-func (s *Execs) Change(change func(name string) string) {
-	s.change = change
+func (s *Hat) ColumnToAttribute(column2attribute func(name string) string) {
+	s.column2attribute = column2attribute
+}
+
+func (s *Hat) AttributeToColumn(attribute2column func(name string) string) {
+	s.attribute2column = attribute2column
 }
 
 // Fetch scan one or more rows to interface{}
-func (s *Execs) Fetch(any interface{}) (err error) {
+func (s *Hat) Fetch(any interface{}) (err error) {
 	var stmt *sql.Stmt
-	stmt, err = s.Stmt()
+	stmt, err = s.stmt()
 	if err != nil {
 		return
 	}
@@ -232,14 +215,9 @@ func (s *Execs) Fetch(any interface{}) (err error) {
 		return
 	}
 	defer rows.Close()
-	err = Scanning(any, rows, s.change)
+	err = Scanning(any, rows, s.column2attribute)
 	if err != nil {
 		return
 	}
-	return
-}
-
-func (s *Execs) RightFetch(any interface{}, prepare string, args ...interface{}) (err error) {
-	err = s.Prepare(prepare).Args(args...).Fetch(any)
 	return
 }
