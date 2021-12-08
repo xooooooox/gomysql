@@ -52,7 +52,7 @@ func Execute(prepare string, args ...interface{}) (int64, error) {
 	return Db2().Prepare(prepare).Args(args...).Execute()
 }
 
-func Transaction(anonymous func(execs *Hat) (err error)) error {
+func Transaction(anonymous func(x *Hat) (err error)) error {
 	return Db2().Transaction(anonymous)
 }
 
@@ -179,7 +179,7 @@ func (s *Hat) Create() (lastId int64, err error) {
 }
 
 // Transaction closure execute transaction, automatic rollback on error
-func (s *Hat) Transaction(anonymous func(e *Hat) (err error)) (err error) {
+func (s *Hat) Transaction(anonymous func(x *Hat) (err error)) (err error) {
 	err = s.Begin()
 	if err != nil {
 		return
