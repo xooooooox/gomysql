@@ -10,7 +10,7 @@ func Modify(modify map[string]interface{}) (columns []string, args []interface{}
 		return
 	}
 	columns = make([]string, length, length)
-	args = make([]interface{}, length, length)
+	args = make([]interface{}, length, length*2)
 	i := 0
 	for key := range modify {
 		columns[i] = key
