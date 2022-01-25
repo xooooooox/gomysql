@@ -583,6 +583,7 @@ func (s *Hat) fetch8First(rows *sql.Rows) (first map[string]*string, err error) 
 func (s *Hat) fetch8All(rows *sql.Rows) (all []map[string]*string, err error) {
 	var length int
 	var columns []string
+	var tmp [][]byte
 	var scanner []interface{}
 	var line map[string]*string
 	columns, err = rows.Columns()
@@ -592,7 +593,7 @@ func (s *Hat) fetch8All(rows *sql.Rows) (all []map[string]*string, err error) {
 	length = len(columns)
 	all = []map[string]*string{}
 	for rows.Next() {
-		tmp := make([][]byte, length)
+		tmp = make([][]byte, length)
 		scanner = make([]interface{}, length)
 		for i := range tmp {
 			scanner[i] = &tmp[i]
