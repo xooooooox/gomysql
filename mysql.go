@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -503,8 +504,8 @@ func (s *Hat) Fetch(any interface{}) (err error) {
 	return
 }
 
-// Fetch8First scan one to map[string]*string 查询结果为空返回 => nil, nil
-func (s *Hat) Fetch8First() (first map[string]*string, err error) {
+// GetOneStr scan one to map[string]*string 查询结果为空返回 => nil, nil
+func (s *Hat) GetOneStr() (first map[string]*string, err error) {
 	var stmt *sql.Stmt
 	stmt, err = s.stmt()
 	if err != nil {
@@ -517,15 +518,15 @@ func (s *Hat) Fetch8First() (first map[string]*string, err error) {
 		return
 	}
 	defer rows.Close()
-	first, err = s.fetch8First(rows)
+	first, err = s.getOneStr(rows)
 	if err != nil {
 		return
 	}
 	return
 }
 
-// Fetch8All scan all to []map[string]*string 查询结果为空返回 => []map[string]*string{}, nil
-func (s *Hat) Fetch8All() (all []map[string]*string, err error) {
+// GetAllStr scan all to []map[string]*string 查询结果为空返回 => []map[string]*string{}, nil
+func (s *Hat) GetAllStr() (all []map[string]*string, err error) {
 	var stmt *sql.Stmt
 	stmt, err = s.stmt()
 	if err != nil {
@@ -538,15 +539,15 @@ func (s *Hat) Fetch8All() (all []map[string]*string, err error) {
 		return
 	}
 	defer rows.Close()
-	all, err = s.fetch8All(rows)
+	all, err = s.getAllStr(rows)
 	if err != nil {
 		return
 	}
 	return
 }
 
-// fetch8First 查询结果为空返回 => nil, nil
-func (s *Hat) fetch8First(rows *sql.Rows) (first map[string]*string, err error) {
+// getOneStr 查询结果为空返回 => nil, nil
+func (s *Hat) getOneStr(rows *sql.Rows) (first map[string]*string, err error) {
 	if !rows.Next() {
 		return
 	}
@@ -579,8 +580,8 @@ func (s *Hat) fetch8First(rows *sql.Rows) (first map[string]*string, err error) 
 	return
 }
 
-// fetch8All 查询结果为空返回 => []map[string]*string{}, nil
-func (s *Hat) fetch8All(rows *sql.Rows) (all []map[string]*string, err error) {
+// getAllStr 查询结果为空返回 => []map[string]*string{}, nil
+func (s *Hat) getAllStr(rows *sql.Rows) (all []map[string]*string, err error) {
 	var length int
 	var columns []string
 	var tmp [][]byte
@@ -610,6 +611,151 @@ func (s *Hat) fetch8All(rows *sql.Rows) (all []map[string]*string, err error) {
 				str := string(val)
 				line[columns[key]] = &str
 			}
+		}
+		all = append(all, line)
+	}
+	return
+}
+
+// GetOneAny scan one to map[string]interface{} 查询结果为空返回 => nil, nil
+func (s *Hat) GetOneAny() (first map[string]interface{}, err error) {
+	var stmt *sql.Stmt
+	stmt, err = s.stmt()
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	var rows *sql.Rows
+	rows, err = stmt.Query(s.args...)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	first, err = s.getOneAny(rows)
+	if err != nil {
+		return
+	}
+	return
+}
+
+// GetAllAny scan all to []map[string]interface{} 查询结果为空返回 => []map[string]interface{}{}, nil
+func (s *Hat) GetAllAny() (all []map[string]interface{}, err error) {
+	var stmt *sql.Stmt
+	stmt, err = s.stmt()
+	if err != nil {
+		return
+	}
+	defer stmt.Close()
+	var rows *sql.Rows
+	rows, err = stmt.Query(s.args...)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	all, err = s.getAllAny(rows)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func DataTypeMysqlToGo(sqlColumnType *sql.ColumnType, sqlValue interface{}) (result interface{}, err error) {
+	if sqlValue == nil {
+		return
+	}
+	dtn := sqlColumnType.DatabaseTypeName()
+	if bts, ok := sqlValue.([]byte); ok {
+		switch dtn {
+		case "DECIMAL":
+			result, err = strconv.ParseFloat(string(bts), 64)
+			return
+		default:
+			result = string(bts)
+		}
+		return
+	}
+	if bts, ok := sqlValue.(*[]byte); ok {
+		switch dtn {
+		case "DECIMAL":
+			result, err = strconv.ParseFloat(string(*bts), 64)
+			return
+		default:
+			result = string(*bts)
+		}
+		return
+	}
+	result = sqlValue
+	return
+}
+
+// getOneAny 查询结果为空返回 => nil, nil
+func (s *Hat) getOneAny(rows *sql.Rows) (first map[string]interface{}, err error) {
+	if !rows.Next() {
+		return
+	}
+	var length int
+	var columns []string
+	var columnTypes []*sql.ColumnType
+	var scanner []interface{}
+	columns, err = rows.Columns()
+	if err != nil {
+		return
+	}
+	columnTypes, err = rows.ColumnTypes()
+	if err != nil {
+		return
+	}
+	length = len(columns)
+	first = map[string]interface{}{}
+	tmp := make([]interface{}, length)
+	scanner = make([]interface{}, length)
+	for i := range tmp {
+		scanner[i] = &tmp[i]
+	}
+	err = rows.Scan(scanner...)
+	if err != nil {
+		return
+	}
+	for key, val := range tmp {
+		first[columns[key]], err = DataTypeMysqlToGo(columnTypes[key], val)
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+// getAllAny 查询结果为空返回 => []map[string]interface{}{}, nil
+func (s *Hat) getAllAny(rows *sql.Rows) (all []map[string]interface{}, err error) {
+	var length int
+	var columns []string
+	var columnTypes []*sql.ColumnType
+	var tmp []interface{}
+	var scanner []interface{}
+	var line map[string]interface{}
+	columns, err = rows.Columns()
+	if err != nil {
+		return
+	}
+	columnTypes, err = rows.ColumnTypes()
+	if err != nil {
+		return
+	}
+	length = len(columns)
+	all = []map[string]interface{}{}
+	for rows.Next() {
+		tmp = make([]interface{}, length)
+		scanner = make([]interface{}, length)
+		for i := range tmp {
+			scanner[i] = &tmp[i]
+		}
+		err = rows.Scan(scanner...)
+		if err != nil {
+			return
+		}
+		line = map[string]interface{}{}
+		for key, val := range tmp {
+			line[columns[key]], err = DataTypeMysqlToGo(columnTypes[key], val)
 		}
 		all = append(all, line)
 	}

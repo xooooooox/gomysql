@@ -2,6 +2,7 @@ package gomysql
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -37,6 +38,20 @@ func ModifyPrepareArgs(update map[string]interface{}) (prepare string, args []in
 		columns[key] = fmt.Sprintf("%s = ?", Identifier(val))
 	}
 	prepare = strings.Join(columns, ", ")
+	return
+}
+
+// JsonTransfer 通过json序列化和反序列化 把数据 source 转移到 result
+func JsonTransfer(source interface{}, result interface{}) (err error) {
+	var bts []byte
+	bts, err = json.Marshal(source)
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal(bts, result)
+	if err != nil {
+		return
+	}
 	return
 }
 
@@ -86,19 +101,34 @@ func (s *Curd) Commit() error {
 	return s.hat.Commit()
 }
 
-// Select 执行任何查询sql, 根据命名规则自动匹配
-func (s *Curd) Select(any interface{}, prepare string, args ...interface{}) error {
+// Fetch 执行任何查询sql, 根据命名规则自动匹配
+func (s *Curd) Fetch(any interface{}, prepare string, args ...interface{}) error {
 	return s.hat.Prepare(prepare).Args(args...).Fetch(any)
 }
 
-// Fetch8First 查询第一条
-func (s *Curd) Fetch8First(prepare string, args ...interface{}) (map[string]*string, error) {
-	return s.hat.Prepare(prepare).Args(args...).Fetch8First()
+// GetOneStr 查询第一条
+func (s *Curd) GetOneStr(prepare string, args ...interface{}) (map[string]*string, error) {
+	return s.hat.Prepare(prepare).Args(args...).GetOneStr()
 }
 
-// Fetch8All 查询所有
-func (s *Curd) Fetch8All(prepare string, args ...interface{}) ([]map[string]*string, error) {
-	return s.hat.Prepare(prepare).Args(args...).Fetch8All()
+// GetAllStr 查询所有
+func (s *Curd) GetAllStr(prepare string, args ...interface{}) ([]map[string]*string, error) {
+	return s.hat.Prepare(prepare).Args(args...).GetAllStr()
+}
+
+// GetOneAny 查询第一条
+func (s *Curd) GetOneAny(prepare string, args ...interface{}) (map[string]interface{}, error) {
+	return s.hat.Prepare(prepare).Args(args...).GetOneAny()
+}
+
+// GetAllAny 查询所有
+func (s *Curd) GetAllAny(prepare string, args ...interface{}) ([]map[string]interface{}, error) {
+	return s.hat.Prepare(prepare).Args(args...).GetAllAny()
+}
+
+// JsonTransfer data exchange by json, map[string]interface{} => *AnyStruct , []map[string]interface{} => *[]AnyStruct | *[]*AnyStruct
+func (s *Curd) JsonTransfer(source interface{}, result interface{}) error {
+	return JsonTransfer(source, result)
 }
 
 // Query 执行任何查询sql
