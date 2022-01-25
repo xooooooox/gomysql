@@ -146,8 +146,8 @@ func (s *Curd) Insert(prepare string, args ...interface{}) (int64, error) {
 	return s.hat.Prepare(prepare).Args(args...).Create()
 }
 
-// isStructPointer 接口是否是一个结构体指针参数
-func (s *Curd) isStructPointer(any interface{}) bool {
+// IsStructPointer 是否是一个结构体指针
+func IsStructPointer(any interface{}) bool {
 	if any == nil {
 		return false
 	}
@@ -156,6 +156,11 @@ func (s *Curd) isStructPointer(any interface{}) bool {
 		return false
 	}
 	return tp.Elem().Kind() == reflect.Struct
+}
+
+// isStructPointer 接口是否是一个结构体指针参数
+func (s *Curd) isStructPointer(any interface{}) bool {
+	return IsStructPointer(any)
 }
 
 // InsertByMap 通过map[string]interface{}将数据插入数据库
