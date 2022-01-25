@@ -660,13 +660,14 @@ func (s *Hat) GetAllAny() (all []map[string]interface{}, err error) {
 }
 
 func DataTypeMysqlToGo(sqlColumnType *sql.ColumnType, sqlValue interface{}) (result interface{}, err error) {
+	result = sqlValue
 	if sqlValue == nil {
 		return
 	}
 	dtn := sqlColumnType.DatabaseTypeName()
 	if bts, ok := sqlValue.([]byte); ok {
 		switch dtn {
-		case "DECIMAL":
+		case "DECIMAL", "DOUBLE", "FLOAT":
 			result, err = strconv.ParseFloat(string(bts), 64)
 			return
 		default:
@@ -676,7 +677,7 @@ func DataTypeMysqlToGo(sqlColumnType *sql.ColumnType, sqlValue interface{}) (res
 	}
 	if bts, ok := sqlValue.(*[]byte); ok {
 		switch dtn {
-		case "DECIMAL":
+		case "DECIMAL", "DOUBLE", "FLOAT":
 			result, err = strconv.ParseFloat(string(*bts), 64)
 			return
 		default:
@@ -684,7 +685,6 @@ func DataTypeMysqlToGo(sqlColumnType *sql.ColumnType, sqlValue interface{}) (res
 		}
 		return
 	}
-	result = sqlValue
 	return
 }
 
@@ -694,18 +694,13 @@ func (s *Hat) getOneAny(rows *sql.Rows) (first map[string]interface{}, err error
 		return
 	}
 	var length int
-	var columns []string
 	var columnTypes []*sql.ColumnType
 	var scanner []interface{}
-	columns, err = rows.Columns()
-	if err != nil {
-		return
-	}
 	columnTypes, err = rows.ColumnTypes()
 	if err != nil {
 		return
 	}
-	length = len(columns)
+	length = len(columnTypes)
 	first = map[string]interface{}{}
 	tmp := make([]interface{}, length)
 	scanner = make([]interface{}, length)
@@ -717,7 +712,7 @@ func (s *Hat) getOneAny(rows *sql.Rows) (first map[string]interface{}, err error
 		return
 	}
 	for key, val := range tmp {
-		first[columns[key]], err = DataTypeMysqlToGo(columnTypes[key], val)
+		first[columnTypes[key].Name()], err = DataTypeMysqlToGo(columnTypes[key], val)
 		if err != nil {
 			return
 		}
@@ -728,20 +723,15 @@ func (s *Hat) getOneAny(rows *sql.Rows) (first map[string]interface{}, err error
 // getAllAny 查询结果为空返回 => []map[string]interface{}{}, nil
 func (s *Hat) getAllAny(rows *sql.Rows) (all []map[string]interface{}, err error) {
 	var length int
-	var columns []string
 	var columnTypes []*sql.ColumnType
 	var tmp []interface{}
 	var scanner []interface{}
 	var line map[string]interface{}
-	columns, err = rows.Columns()
-	if err != nil {
-		return
-	}
 	columnTypes, err = rows.ColumnTypes()
 	if err != nil {
 		return
 	}
-	length = len(columns)
+	length = len(columnTypes)
 	all = []map[string]interface{}{}
 	for rows.Next() {
 		tmp = make([]interface{}, length)
@@ -755,7 +745,7 @@ func (s *Hat) getAllAny(rows *sql.Rows) (all []map[string]interface{}, err error
 		}
 		line = map[string]interface{}{}
 		for key, val := range tmp {
-			line[columns[key]], err = DataTypeMysqlToGo(columnTypes[key], val)
+			line[columnTypes[key].Name()], err = DataTypeMysqlToGo(columnTypes[key], val)
 		}
 		all = append(all, line)
 	}
