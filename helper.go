@@ -233,9 +233,9 @@ func (s *Curd) Create(insert interface{}, table ...string) (err error) {
 	idi := -1
 	tmp := ""
 	for i := 0; i < vs.NumField(); i++ {
-		tmp = vs.Type().Field(i).Name
-		add[s.hat.name1(tmp)] = vs.Field(i).Interface()
-		if strings.EqualFold(tmp, "id") {
+		tmp = s.hat.name1(vs.Type().Field(i).Name)
+		add[tmp] = vs.Field(i).Interface()
+		if tmp == "id" {
 			idi = i
 		}
 	}
