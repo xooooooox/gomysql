@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// modify 根据需要更新的map数据转化成字段切片和字段参数
+// modify convert map data updated as needed into field slices and field parameters
 func modify(update map[string]interface{}) (columns []string, args []interface{}) {
 	length := len(update)
 	if length == 0 {
@@ -30,7 +30,7 @@ func modify(update map[string]interface{}) (columns []string, args []interface{}
 	return
 }
 
-// ModifyPrepareArgs 根据更新的map转化成sql更新脚本和对应参数
+// ModifyPrepareArgs convert the updated map into sql update script and corresponding parameters
 func ModifyPrepareArgs(update map[string]interface{}) (prepare string, args []interface{}) {
 	var columns []string
 	columns, args = modify(update)
@@ -41,7 +41,7 @@ func ModifyPrepareArgs(update map[string]interface{}) (prepare string, args []in
 	return
 }
 
-// JsonTransfer 通过json序列化和反序列化 把数据 source 转移到 result
+// JsonTransfer by jsonMarshal and unmarshal transfer data from source to result
 func JsonTransfer(source interface{}, result interface{}) (err error) {
 	var bts []byte
 	bts, err = json.Marshal(source)
@@ -81,47 +81,52 @@ func (s *Curd) Name1(name1 func(name string) string) {
 	s.hat.name1 = name1
 }
 
-// Transaction 必包执行事务, err != nil 自动回滚
-func (s *Curd) Transaction(fc func(hat *Hat) (err error)) error {
-	return s.hat.Transaction(fc)
+// Transaction closures execute transaction, err != nil auto rollback
+func (s *Curd) Transaction(closure func(hat *Hat) (err error)) error {
+	return s.hat.Transaction(closure)
 }
 
-// Begin 开起事务
+// Begin start a transaction
 func (s *Curd) Begin() error {
 	return s.hat.Begin()
 }
 
-// Rollback 事务回滚
+// Rollback transaction rollback
 func (s *Curd) Rollback() error {
 	return s.hat.Rollback()
 }
 
-// Commit 事务提交
+// Commit transaction commit
 func (s *Curd) Commit() error {
 	return s.hat.Commit()
 }
 
-// Fetch 执行任何查询sql, 根据命名规则自动匹配
-func (s *Curd) Fetch(any interface{}, prepare string, args ...interface{}) error {
-	return s.hat.Prepare(prepare).Args(args...).Fetch(any)
+// PrepareArgs get prepared sql statement and parameter list of prepared sql statement
+func (s *Curd) PrepareArgs() (string, []interface{}) {
+	return s.hat.PrepareArgs()
 }
 
-// GetOneStr 查询第一条
+// Fetch execute any query sql, automatically match according to naming rules
+func (s *Curd) Fetch(fetch interface{}, prepare string, args ...interface{}) error {
+	return s.hat.Prepare(prepare).Args(args...).Fetch(fetch)
+}
+
+// GetOneStr get first one string
 func (s *Curd) GetOneStr(prepare string, args ...interface{}) (map[string]*string, error) {
 	return s.hat.Prepare(prepare).Args(args...).GetOneStr()
 }
 
-// GetAllStr 查询所有
+// GetAllStr get all string
 func (s *Curd) GetAllStr(prepare string, args ...interface{}) ([]map[string]*string, error) {
 	return s.hat.Prepare(prepare).Args(args...).GetAllStr()
 }
 
-// GetOneAny 查询第一条
+// GetOneAny get first one any
 func (s *Curd) GetOneAny(prepare string, args ...interface{}) (map[string]interface{}, error) {
 	return s.hat.Prepare(prepare).Args(args...).GetOneAny()
 }
 
-// GetAllAny 查询所有
+// GetAllAny get all any
 func (s *Curd) GetAllAny(prepare string, args ...interface{}) ([]map[string]interface{}, error) {
 	return s.hat.Prepare(prepare).Args(args...).GetAllAny()
 }
@@ -131,22 +136,22 @@ func (s *Curd) JsonTransfer(source interface{}, result interface{}) error {
 	return JsonTransfer(source, result)
 }
 
-// Query 执行任何查询sql
-func (s *Curd) Query(anonymous func(rows *sql.Rows) (err error), prepare string, args ...interface{}) error {
-	return s.hat.Scan(anonymous).Prepare(prepare).Args(args...).Query()
+// Query execute any query sql
+func (s *Curd) Query(scan func(rows *sql.Rows) (err error), prepare string, args ...interface{}) error {
+	return s.hat.Scan(scan).Prepare(prepare).Args(args...).Query()
 }
 
-// Execute 执行任何非查询sql
+// Execute execute any non-query sql
 func (s *Curd) Execute(prepare string, args ...interface{}) (int64, error) {
 	return s.hat.Prepare(prepare).Args(args...).Execute()
 }
 
-// Insert 执行插入一条的sql
+// Insert execute an insert sql
 func (s *Curd) Insert(prepare string, args ...interface{}) (int64, error) {
 	return s.hat.Prepare(prepare).Args(args...).Create()
 }
 
-// IsStructPointer 是否是一个结构体指针
+// IsStructPointer whether any is a struct pointer
 func IsStructPointer(any interface{}) bool {
 	if any == nil {
 		return false
@@ -158,12 +163,12 @@ func IsStructPointer(any interface{}) bool {
 	return tp.Elem().Kind() == reflect.Struct
 }
 
-// isStructPointer 接口是否是一个结构体指针参数
+// isStructPointer whether the interface is a struct pointer parameter
 func (s *Curd) isStructPointer(any interface{}) bool {
 	return IsStructPointer(any)
 }
 
-// InsertByMap 通过map[string]interface{}将数据插入数据库
+// InsertByMap by map[string]interface{} insert
 func (s *Curd) InsertByMap(insert map[string]interface{}, table string) (id int64, err error) {
 	if table == "" {
 		err = errors.New("the insert table is empty")
@@ -183,7 +188,7 @@ func (s *Curd) InsertByMap(insert map[string]interface{}, table string) (id int6
 		values[i] = "?"
 		i++
 	}
-	// 根据字段名称排序
+	// sort by field name
 	sort.Strings(columns)
 	for key, val := range columns {
 		args[key] = insert[val]
@@ -198,7 +203,7 @@ func (s *Curd) InsertByMap(insert map[string]interface{}, table string) (id int6
 	return
 }
 
-// InsertByStruct 通过结构体指针将数据插入数据库, 可以指定表名, 表名以最后一个字符串为准, 不设置默认结构体名称转换
+// InsertByStruct insert by struct pointer
 func (s *Curd) InsertByStruct(insert interface{}, table ...string) (id int64, err error) {
 	if !s.isStructPointer(insert) {
 		err = fmt.Errorf("the insert object is not a struct pointer")
@@ -221,7 +226,7 @@ func (s *Curd) InsertByStruct(insert interface{}, table ...string) (id int64, er
 	return
 }
 
-// Create 通过结构体指针将数据插入数据库自动设置自增长字段(bigint<=>int64)id值, 可以指定表名, 表名以最后一个字符串为准, 不设置默认结构体名称转换
+// Create insert data by struct pointer, auto set id value
 func (s *Curd) Create(insert interface{}, table ...string) (err error) {
 	if !s.isStructPointer(insert) {
 		err = fmt.Errorf("the insert object is not a struct pointer")
@@ -251,19 +256,19 @@ func (s *Curd) Create(insert interface{}, table ...string) (err error) {
 	if err != nil {
 		return
 	}
-	// 插入对象的结构体存在Id/ID字段, 插入行的自增长值是正整数, 结构体属性可以设置, 结构体属性类型为int64类型
+	// set id value
 	if idi >= 0 && id > 0 && vs.Field(idi).CanSet() && vs.Field(idi).Type().Kind() == reflect.Int64 {
 		vs.Field(idi).SetInt(id)
 	}
 	return
 }
 
-// idEqual 创建 `id` = ? where 条件
+// idEqual create sql `id` = ?
 func (s *Curd) idEqual() string {
 	return fmt.Sprintf("%s = ?", Identifier("id"))
 }
 
-// Delete 删除表数据 使用where条件, where: DELETE FROM `table` WHERE ( where );
+// Delete delete by where
 func (s *Curd) Delete(table string, where string, args ...interface{}) (int64, error) {
 	if where == "" {
 		return s.Execute(fmt.Sprintf("DELETE FROM %s;", Identifier(table)))
@@ -271,12 +276,12 @@ func (s *Curd) Delete(table string, where string, args ...interface{}) (int64, e
 	return s.Execute(fmt.Sprintf("DELETE FROM %s WHERE ( %s );", Identifier(table), where), args...)
 }
 
-// DeleteById 根据id字段删除数据, 通常id字段是自增长字段亦是数据库表主键
+// DeleteById delete by id
 func (s *Curd) DeleteById(table string, id interface{}) (int64, error) {
 	return s.Delete(table, s.idEqual(), id)
 }
 
-// UpdateByMap 通过map[string]interface{}更新数据
+// UpdateByMap by map[string]interface{} update
 func (s *Curd) UpdateByMap(update map[string]interface{}, table string, where string, args ...interface{}) (int64, error) {
 	key, val := ModifyPrepareArgs(update)
 	prepare := ""
@@ -289,15 +294,14 @@ func (s *Curd) UpdateByMap(update map[string]interface{}, table string, where st
 	return s.Execute(prepare, val...)
 }
 
-// UpdateByMapById 通过map[string]interface{}更新数据
+// UpdateByMapById by map[string]interface{} update
 func (s *Curd) UpdateByMapById(modify map[string]interface{}, table string, id interface{}) (int64, error) {
 	return s.UpdateByMap(modify, table, s.idEqual(), id)
 }
 
-// Update 根据两个结构体数据更新表数据
-// before:源数据库的数据(结构体指针)
-// after:最新变化的数据(结构体指针)
-// 更新字段为 before和after有相同名称的字段且字段值不相等,把对应字段的值设置成after对应字段的值, 不更新的字段不应该存在于after结构体中; 如果after结构体的类型和before类型是一致的, 建议设置成相同的值以避免数据剧库数据更新
+// Update update table data based on two structure data
+// before: source database data (struct pointer)
+// after: the latest changed data (struct pointer)
 func (s *Curd) Update(before interface{}, after interface{}, table string, where string, args ...interface{}) (rowsAffected int64, err error) {
 	if !s.isStructPointer(before) {
 		err = fmt.Errorf("the update object before is not a struct pointer")
@@ -336,12 +340,12 @@ func (s *Curd) Update(before interface{}, after interface{}, table string, where
 	return
 }
 
-// UpdateById 根据id更新
+// UpdateById update by id
 func (s *Curd) UpdateById(before interface{}, after interface{}, table string, id interface{}) (int64, error) {
 	return s.Update(before, after, table, s.idEqual(), id)
 }
 
-// Count sql统计表的数据条数
+// Count statistics rows count
 func (s *Curd) Count(prepare string, args ...interface{}) (count int64, err error) {
 	err = s.Query(func(rows *sql.Rows) (err error) {
 		if rows.Next() {
@@ -352,7 +356,7 @@ func (s *Curd) Count(prepare string, args ...interface{}) (count int64, err erro
 	return
 }
 
-// SumInt sql int64 求和
+// SumInt sql sum int64
 func (s *Curd) SumInt(prepare string, args ...interface{}) (sum int64, err error) {
 	err = s.Query(func(rows *sql.Rows) (err error) {
 		if rows.Next() {
@@ -370,7 +374,7 @@ func (s *Curd) SumInt(prepare string, args ...interface{}) (sum int64, err error
 	return
 }
 
-// SumFloat sql float64 求和
+// SumFloat sql sum float64
 func (s *Curd) SumFloat(prepare string, args ...interface{}) (sum float64, err error) {
 	err = s.Query(func(rows *sql.Rows) (err error) {
 		if rows.Next() {
@@ -388,7 +392,7 @@ func (s *Curd) SumFloat(prepare string, args ...interface{}) (sum float64, err e
 	return
 }
 
-// Exists sql查询数据是存在
+// Exists check if data exists
 func (s *Curd) Exists(prepare string, args ...interface{}) (exists bool, err error) {
 	err = s.Query(func(rows *sql.Rows) (err error) {
 		if rows.Next() {

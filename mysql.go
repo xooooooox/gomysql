@@ -19,7 +19,7 @@ const (
 // db database connect object
 var db *sql.DB
 
-// Open connect to mysql service, auto set database connect; dsn: yinran:112233@tcp(127.0.0.1:3306)/test?charset=utf8mb4&collation=utf8mb4_unicode_ci
+// Open connect to mysql service, auto set database connect; dsn: username:password@tcp(host:port)/test?charset=utf8mb4&collation=utf8mb4_unicode_ci
 func Open(dsn string) (err error) {
 	db, err = sql.Open("mysql", dsn)
 	if err != nil {
@@ -60,10 +60,10 @@ func Db2() *Hat {
 	}
 }
 
-// Identifier MySql标识符
+// Identifier MySql identifier
 func Identifier(s string) string {
 	if strings.Contains(s, "(") {
-		// 存在函数调用的标识符, 不做任何处理
+		// there is an identifier for a function call, do nothing
 		return s
 	}
 	s = strings.ReplaceAll(s, Backtick, "")
@@ -121,29 +121,29 @@ func SetDefaultName1(name1 func(name string) string) {
 	defaultName1 = name1
 }
 
-// Query 执行查询sql
-func Query(anonymous func(rows *sql.Rows) (err error), prepare string, args ...interface{}) error {
-	return Db2().Scan(anonymous).Prepare(prepare).Args(args...).Query()
+// Query execute query sql
+func Query(scan func(rows *sql.Rows) (err error), prepare string, args ...interface{}) error {
+	return Db2().Scan(scan).Prepare(prepare).Args(args...).Query()
 }
 
-// Execute 执行非查询sql
+// Execute execute non-query sql
 func Execute(prepare string, args ...interface{}) (int64, error) {
 	return Db2().Prepare(prepare).Args(args...).Execute()
 }
 
-// Transaction 事务执行,出错自动回滚
-func Transaction(anonymous func(hat *Hat) (err error)) error {
-	return Db2().Transaction(anonymous)
+// Transaction transaction execution, automatic rollback on error
+func Transaction(closure func(hat *Hat) (err error)) error {
+	return Db2().Transaction(closure)
 }
 
-// Create 执行插入sql
+// Create execute insert sql
 func Create(prepare string, args ...interface{}) (int64, error) {
 	return Db2().Prepare(prepare).Args(args...).Create()
 }
 
-// Fetch 查询sql, 根据命名规则自动匹配字段
-func Fetch(any interface{}, prepare string, args ...interface{}) (err error) {
-	return Db2().Prepare(prepare).Args(args...).Fetch(any)
+// Fetch query sql, automatically match fields according to naming rules
+func Fetch(fetch interface{}, prepare string, args ...interface{}) (err error) {
+	return Db2().Prepare(prepare).Args(args...).Fetch(fetch)
 }
 
 // Hat mysql database sql statement execute object
@@ -157,7 +157,7 @@ type Hat struct {
 	name1   func(name string) string         // go name to mysql name
 }
 
-// Begin 开启事务
+// Begin start a transaction
 func (s *Hat) Begin() (err error) {
 	if s.tx != nil {
 		err = errors.New("please commit or rollback the opened transaction")
@@ -167,7 +167,7 @@ func (s *Hat) Begin() (err error) {
 	return
 }
 
-// Rollback 回滚事务
+// Rollback transaction rollback
 func (s *Hat) Rollback() (err error) {
 	if s.tx != nil {
 		err = s.tx.Rollback()
@@ -176,7 +176,7 @@ func (s *Hat) Rollback() (err error) {
 	return
 }
 
-// Commit 提交事务
+// Commit transaction commit
 func (s *Hat) Commit() (err error) {
 	if s.tx != nil {
 		err = s.tx.Commit()
@@ -185,25 +185,25 @@ func (s *Hat) Commit() (err error) {
 	return
 }
 
-// Scan 设置扫描查询结果(匿名函数)
-func (s *Hat) Scan(anonymous func(rows *sql.Rows) (err error)) *Hat {
-	s.scan = anonymous
+// Scan set scan query result (anonymous function)
+func (s *Hat) Scan(scan func(rows *sql.Rows) (err error)) *Hat {
+	s.scan = scan
 	return s
 }
 
-// Prepare 设置预处理sql语句
+// Prepare set prepared sql statement
 func (s *Hat) Prepare(prepare string) *Hat {
 	s.prepare = prepare
 	return s
 }
 
-// Args 设置预处理sql语句的参数列表
+// Args set the parameter list of the prepared sql statement
 func (s *Hat) Args(args ...interface{}) *Hat {
 	s.args = args
 	return s
 }
 
-// stmt 执行预处理sql语句, 如果开始已经事务, 优先使用事务执行预处理sql语句
+// stmt execute the prepared sql statement, if the transaction has already started, use the transaction to execute the prepared sql statement first
 func (s *Hat) stmt() (stmt *sql.Stmt, err error) {
 	if s.tx != nil {
 		stmt, err = s.tx.Prepare(s.prepare)
@@ -213,13 +213,13 @@ func (s *Hat) stmt() (stmt *sql.Stmt, err error) {
 	return
 }
 
-// PrepareArgs 获取预处理sql语句和预处理sql语句的参数列表
+// PrepareArgs get prepared sql statement and parameter list of prepared sql statement
 func (s *Hat) PrepareArgs() (prepare string, args []interface{}) {
 	prepare, args = s.prepare, s.args
 	return
 }
 
-// Query 执行查询sql
+// Query execute query sql
 func (s *Hat) Query() (err error) {
 	var stmt *sql.Stmt
 	stmt, err = s.stmt()
@@ -237,7 +237,7 @@ func (s *Hat) Query() (err error) {
 	return
 }
 
-// Execute 执行非查询sql
+// Execute execute non-query sql
 func (s *Hat) Execute() (rowsAffected int64, err error) {
 	var stmt *sql.Stmt
 	stmt, err = s.stmt()
@@ -254,8 +254,8 @@ func (s *Hat) Execute() (rowsAffected int64, err error) {
 	return
 }
 
-// Create 执行插入sql语句, 并获取自增长主键值
-func (s *Hat) Create() (lastId int64, err error) {
+// Create execute the insert sql statement and get the self-increasing primary key value
+func (s *Hat) Create() (lastInsertId int64, err error) {
 	var stmt *sql.Stmt
 	stmt, err = s.stmt()
 	if err != nil {
@@ -267,17 +267,17 @@ func (s *Hat) Create() (lastId int64, err error) {
 	if err != nil {
 		return
 	}
-	lastId, err = result.LastInsertId()
+	lastInsertId, err = result.LastInsertId()
 	return
 }
 
 // Transaction closure execute transaction, automatic rollback on error
-func (s *Hat) Transaction(anonymous func(hat *Hat) (err error)) (err error) {
+func (s *Hat) Transaction(closure func(hat *Hat) (err error)) (err error) {
 	err = s.Begin()
 	if err != nil {
 		return
 	}
-	err = anonymous(s)
+	err = closure(s)
 	if err != nil {
 		_ = s.Rollback()
 		return
@@ -480,8 +480,8 @@ func (s *Hat) scanning(any interface{}, rows *sql.Rows, change func(name string)
 }
 
 // Fetch scan one or more rows to interface{}
-func (s *Hat) Fetch(any interface{}) (err error) {
-	if any == nil {
+func (s *Hat) Fetch(fetch interface{}) (err error) {
+	if fetch == nil {
 		err = errors.New("receive object value is nil")
 		return
 	}
@@ -497,14 +497,14 @@ func (s *Hat) Fetch(any interface{}) (err error) {
 		return
 	}
 	defer rows.Close()
-	err = s.scanning(any, rows, s.name0)
+	err = s.scanning(fetch, rows, s.name0)
 	if err != nil {
 		return
 	}
 	return
 }
 
-// GetOneStr scan one to map[string]*string 查询结果为空返回 => nil, nil
+// GetOneStr scan one to map[string]*string the query result is empty and return => nil, nil
 func (s *Hat) GetOneStr() (first map[string]*string, err error) {
 	var stmt *sql.Stmt
 	stmt, err = s.stmt()
@@ -525,7 +525,7 @@ func (s *Hat) GetOneStr() (first map[string]*string, err error) {
 	return
 }
 
-// GetAllStr scan all to []map[string]*string 查询结果为空返回 => []map[string]*string{}, nil
+// GetAllStr scan all to []map[string]*string the query result is empty and return => []map[string]*string{}, nil
 func (s *Hat) GetAllStr() (all []map[string]*string, err error) {
 	var stmt *sql.Stmt
 	stmt, err = s.stmt()
@@ -546,7 +546,7 @@ func (s *Hat) GetAllStr() (all []map[string]*string, err error) {
 	return
 }
 
-// getOneStr 查询结果为空返回 => nil, nil
+// getOneStr the query result is empty and return => nil, nil
 func (s *Hat) getOneStr(rows *sql.Rows) (first map[string]*string, err error) {
 	if !rows.Next() {
 		return
@@ -580,7 +580,7 @@ func (s *Hat) getOneStr(rows *sql.Rows) (first map[string]*string, err error) {
 	return
 }
 
-// getAllStr 查询结果为空返回 => []map[string]*string{}, nil
+// getAllStr the query result is empty and return => []map[string]*string{}, nil
 func (s *Hat) getAllStr(rows *sql.Rows) (all []map[string]*string, err error) {
 	var length int
 	var columns []string
@@ -617,7 +617,7 @@ func (s *Hat) getAllStr(rows *sql.Rows) (all []map[string]*string, err error) {
 	return
 }
 
-// GetOneAny scan one to map[string]interface{} 查询结果为空返回 => nil, nil
+// GetOneAny scan one to map[string]interface{} the query result is empty and return => nil, nil
 func (s *Hat) GetOneAny() (first map[string]interface{}, err error) {
 	var stmt *sql.Stmt
 	stmt, err = s.stmt()
@@ -638,7 +638,7 @@ func (s *Hat) GetOneAny() (first map[string]interface{}, err error) {
 	return
 }
 
-// GetAllAny scan all to []map[string]interface{} 查询结果为空返回 => []map[string]interface{}{}, nil
+// GetAllAny scan all to []map[string]interface{} the query result is empty and return => []map[string]interface{}{}, nil
 func (s *Hat) GetAllAny() (all []map[string]interface{}, err error) {
 	var stmt *sql.Stmt
 	stmt, err = s.stmt()
@@ -688,7 +688,7 @@ func DataTypeMysqlToGo(sqlColumnType *sql.ColumnType, sqlValue interface{}) (res
 	return
 }
 
-// getOneAny 查询结果为空返回 => nil, nil
+// getOneAny the query result is empty and return => nil, nil
 func (s *Hat) getOneAny(rows *sql.Rows) (first map[string]interface{}, err error) {
 	if !rows.Next() {
 		return
@@ -720,7 +720,7 @@ func (s *Hat) getOneAny(rows *sql.Rows) (first map[string]interface{}, err error
 	return
 }
 
-// getAllAny 查询结果为空返回 => []map[string]interface{}{}, nil
+// getAllAny the query result is empty and return => []map[string]interface{}{}, nil
 func (s *Hat) getAllAny(rows *sql.Rows) (all []map[string]interface{}, err error) {
 	var length int
 	var columnTypes []*sql.ColumnType
