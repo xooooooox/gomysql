@@ -146,6 +146,26 @@ func Fetch(fetch interface{}, prepare string, args ...interface{}) (err error) {
 	return Db2().Prepare(prepare).Args(args...).Fetch(fetch)
 }
 
+// GetOneStr get first of query rows
+func GetOneStr(prepare string, args ...interface{}) (map[string]*string, error) {
+	return Db2().Prepare(prepare).Args(args...).GetOneStr()
+}
+
+// GetAllStr get all of query rows
+func GetAllStr(prepare string, args ...interface{}) ([]map[string]*string, error) {
+	return Db2().Prepare(prepare).Args(args...).GetAllStr()
+}
+
+// GetOneAny get first of query rows
+func GetOneAny(prepare string, args ...interface{}) (map[string]interface{}, error) {
+	return Db2().Prepare(prepare).Args(args...).GetOneAny()
+}
+
+// GetAllAny get all of query rows
+func GetAllAny(prepare string, args ...interface{}) ([]map[string]interface{}, error) {
+	return Db2().Prepare(prepare).Args(args...).GetAllAny()
+}
+
 // Hat mysql database sql statement execute object
 type Hat struct {
 	db      *sql.DB                          // database connection object
