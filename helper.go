@@ -144,7 +144,7 @@ func (s *Curd) GetAllAny(prepare string, args ...interface{}) ([]map[string]inte
 	return s.hat.Prepare(prepare).Args(args...).GetAllAny()
 }
 
-// JsonTransfer data exchange by json, map[string]interface{} => *AnyStruct , []map[string]interface{} => *[]AnyStruct | *[]*AnyStruct
+// JsonTransfer data exchange by json, map[string]interface{} <=> *AnyStruct , []map[string]interface{} <=> *[]AnyStruct | *[]*AnyStruct
 func (s *Curd) JsonTransfer(source interface{}, result interface{}) error {
 	return JsonTransfer(source, result)
 }
