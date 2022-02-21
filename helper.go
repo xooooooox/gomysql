@@ -55,18 +55,12 @@ func JsonTransfer(source interface{}, result interface{}) (err error) {
 	return
 }
 
-// AddAt set timestamp
-var AddAt func(add map[string]interface{}) map[string]interface{}
-
-// ModAt set timestamp
-var ModAt func(mod map[string]interface{}) map[string]interface{}
-
-// DelAt set timestamp
-var DelAt func() map[string]interface{}
-
 // Curd insert, update, delete, select
 type Curd struct {
-	hat *Hat
+	hat   *Hat
+	AddAt func() map[string]interface{}
+	ModAt func() map[string]interface{}
+	DelAt func() map[string]interface{}
 }
 
 func NewCurd(hat ...*Hat) (curd *Curd) {
@@ -202,6 +196,26 @@ func (s *Curd) isStructPointer(any interface{}) bool {
 	return IsStructPointer(any)
 }
 
+// addAt append timestamp
+func (s *Curd) addAt(msi map[string]interface{}, add func() map[string]interface{}) map[string]interface{} {
+	if add == nil {
+		return msi
+	}
+	apd := add()
+	if apd == nil {
+		return msi
+	}
+	if msi == nil {
+		msi = map[string]interface{}{}
+	}
+	for k, v := range apd {
+		if _, ok := msi[k]; !ok {
+			msi[k] = v
+		}
+	}
+	return msi
+}
+
 // Add add one using map[string]interface{}
 func (s *Curd) Add(add map[string]interface{}, table interface{}) (id int64, err error) {
 	if add == nil {
@@ -213,8 +227,8 @@ func (s *Curd) Add(add map[string]interface{}, table interface{}) (id int64, err
 		err = errors.New("please specify the table name first")
 		return
 	}
-	if AddAt != nil {
-		add = AddAt(add)
+	if s.AddAt != nil {
+		add = s.addAt(add, s.AddAt)
 	}
 	length := len(add)
 	columns := make([]string, length)
@@ -331,10 +345,10 @@ func (s *Curd) Del1(table interface{}, id interface{}) (int64, error) {
 
 // PseudoDel pseudo delete using where
 func (s *Curd) PseudoDel(table interface{}, where string, args ...interface{}) (int64, error) {
-	if DelAt == nil {
-		return 0, errors.New("please set the pseudo delete handler first => DelAt()")
+	if s.DelAt == nil {
+		return 0, errors.New("please set the pseudo delete handler first")
 	}
-	mod := DelAt()
+	mod := s.DelAt()
 	length := len(mod)
 	if length == 0 {
 		return 0, nil
@@ -353,8 +367,8 @@ func (s *Curd) Mod(update map[string]interface{}, table interface{}, where strin
 	if tab == "" {
 		return 0, errors.New("please specify the table name first")
 	}
-	if ModAt != nil {
-		update = ModAt(update)
+	if s.ModAt != nil {
+		update = s.addAt(update, s.ModAt)
 	}
 	key, val := ModifyPrepareArgs(update)
 	prepare := ""
