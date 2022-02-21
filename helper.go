@@ -85,8 +85,18 @@ func (s *Curd) Name1(name1 func(name string) string) {
 }
 
 // Transaction closures execute transaction, err != nil auto rollback
-func (s *Curd) Transaction(closure func(hat *Hat) (err error)) error {
-	return s.hat.Transaction(closure)
+func (s *Curd) Transaction(closure func(curd *Curd) (err error)) (err error) {
+	err = s.Begin()
+	if err != nil {
+		return
+	}
+	err = closure(s)
+	if err != nil {
+		_ = s.Rollback()
+		return
+	}
+	_ = s.Commit()
+	return
 }
 
 // Begin start a transaction
