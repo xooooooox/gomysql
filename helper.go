@@ -151,6 +151,31 @@ func (s *Curd) Insert(prepare string, args ...interface{}) (int64, error) {
 	return s.hat.Prepare(prepare).Args(args...).Create()
 }
 
+// table cout table name
+func (s *Curd) table(table interface{}) (tab string) {
+	if table == nil {
+		return
+	}
+	ok := false
+	tab, ok = table.(string)
+	if ok {
+		return
+	}
+	tp := reflect.TypeOf(table)
+	if tp.Kind() == reflect.Struct {
+		tab = s.hat.name1(tp.Name())
+		return
+	}
+	if tp.Kind() == reflect.Ptr {
+		tp = tp.Elem()
+		if tp.Kind() == reflect.Struct {
+			tab = s.hat.name1(tp.Name())
+			return
+		}
+	}
+	return
+}
+
 // IsStructPointer whether any is a struct pointer
 func IsStructPointer(any interface{}) bool {
 	if any == nil {
@@ -168,22 +193,23 @@ func (s *Curd) isStructPointer(any interface{}) bool {
 	return IsStructPointer(any)
 }
 
-// InsertByMap by map[string]interface{} insert
-func (s *Curd) InsertByMap(insert map[string]interface{}, table string) (id int64, err error) {
-	if table == "" {
-		err = errors.New("the insert table is empty")
-		return
-	}
-	if insert == nil {
+// Add add one using map[string]interface{}
+func (s *Curd) Add(add map[string]interface{}, table interface{}) (id int64, err error) {
+	if add == nil {
 		err = errors.New("the insert object is nil")
 		return
 	}
-	length := len(insert)
+	tab := s.table(table)
+	if tab == "" {
+		err = errors.New("please specify the table name first")
+		return
+	}
+	length := len(add)
 	columns := make([]string, length)
 	values := make([]string, length)
 	args := make([]interface{}, length)
 	i := 0
-	for key := range insert {
+	for key := range add {
 		columns[i] = key
 		values[i] = "?"
 		i++
@@ -191,55 +217,61 @@ func (s *Curd) InsertByMap(insert map[string]interface{}, table string) (id int6
 	// sort by field name
 	sort.Strings(columns)
 	for key, val := range columns {
-		args[key] = insert[val]
+		args[key] = add[val]
 	}
 	prepare := fmt.Sprintf(
 		"INSERT INTO %s ( %s ) VALUES ( %s );",
-		Identifier(table),
+		Identifier(tab),
 		fmt.Sprintf("%s%s%s", Backtick, strings.Join(columns, fmt.Sprintf("%s, %s", Backtick, Backtick)), Backtick),
 		strings.Join(values, ", "),
 	)
 	id, err = s.Insert(prepare, args...)
+	if err != nil {
+		return
+	}
 	return
 }
 
-// InsertByStruct insert by struct pointer
-func (s *Curd) InsertByStruct(insert interface{}, table ...string) (id int64, err error) {
-	if !s.isStructPointer(insert) {
-		err = fmt.Errorf("the insert object is not a struct pointer")
+// Add1 add one using struct pointer
+func (s *Curd) Add1(add interface{}, table ...interface{}) (id int64, err error) {
+	if !s.isStructPointer(add) {
+		err = fmt.Errorf("the add object is not a struct pointer")
 		return
 	}
-	add := map[string]interface{}{}
-	val := reflect.ValueOf(insert)
+	obj := map[string]interface{}{}
+	val := reflect.ValueOf(add)
 	vs := val.Elem()
 	for i := 0; i < vs.NumField(); i++ {
-		add[s.hat.name1(vs.Type().Field(i).Name)] = vs.Field(i).Interface()
+		obj[s.hat.name1(vs.Type().Field(i).Name)] = vs.Field(i).Interface()
 	}
 	tab := ""
 	length := len(table)
 	if length > 0 {
-		tab = table[length-1]
+		tab = s.table(table[length-1])
 	} else {
-		tab = s.hat.name1(vs.Type().Name())
+		tab = s.table(add)
 	}
-	id, err = s.InsertByMap(add, tab)
+	id, err = s.Add(obj, tab)
+	if err != nil {
+		return
+	}
 	return
 }
 
-// Create insert data by struct pointer, auto set id value
-func (s *Curd) Create(insert interface{}, table ...string) (err error) {
-	if !s.isStructPointer(insert) {
-		err = fmt.Errorf("the insert object is not a struct pointer")
+// Add2 add one using struct pointer, auto set id value
+func (s *Curd) Add2(add interface{}, table ...interface{}) (err error) {
+	if !s.isStructPointer(add) {
+		err = fmt.Errorf("the add object is not a struct pointer")
 		return
 	}
-	add := map[string]interface{}{}
-	val := reflect.ValueOf(insert)
+	obj := map[string]interface{}{}
+	val := reflect.ValueOf(add)
 	vs := val.Elem()
 	idi := -1
 	tmp := ""
 	for i := 0; i < vs.NumField(); i++ {
 		tmp = s.hat.name1(vs.Type().Field(i).Name)
-		add[tmp] = vs.Field(i).Interface()
+		obj[tmp] = vs.Field(i).Interface()
 		if tmp == "id" {
 			idi = i
 		}
@@ -247,12 +279,12 @@ func (s *Curd) Create(insert interface{}, table ...string) (err error) {
 	tab := ""
 	length := len(table)
 	if length > 0 {
-		tab = table[length-1]
+		tab = s.table(table[length-1])
 	} else {
-		tab = s.hat.name1(vs.Type().Name())
+		tab = s.table(add)
 	}
 	var id int64
-	id, err = s.InsertByMap(add, tab)
+	id, err = s.Add(obj, tab)
 	if err != nil {
 		return
 	}
@@ -268,41 +300,41 @@ func (s *Curd) idEqual() string {
 	return fmt.Sprintf("%s = ?", Identifier("id"))
 }
 
-// Delete delete by where
-func (s *Curd) Delete(table string, where string, args ...interface{}) (int64, error) {
+// Del delete using where
+func (s *Curd) Del(table interface{}, where string, args ...interface{}) (int64, error) {
 	if where == "" {
-		return s.Execute(fmt.Sprintf("DELETE FROM %s;", Identifier(table)))
+		return s.Execute(fmt.Sprintf("DELETE FROM %s;", Identifier(s.table(table))))
 	}
-	return s.Execute(fmt.Sprintf("DELETE FROM %s WHERE ( %s );", Identifier(table), where), args...)
+	return s.Execute(fmt.Sprintf("DELETE FROM %s WHERE ( %s );", Identifier(s.table(table)), where), args...)
 }
 
-// DeleteById delete by id
-func (s *Curd) DeleteById(table string, id interface{}) (int64, error) {
-	return s.Delete(table, s.idEqual(), id)
+// Del1 delete using id
+func (s *Curd) Del1(table interface{}, id interface{}) (int64, error) {
+	return s.Del(table, s.idEqual(), id)
 }
 
-// UpdateByMap by map[string]interface{} update
-func (s *Curd) UpdateByMap(update map[string]interface{}, table string, where string, args ...interface{}) (int64, error) {
+// Mod modify using map[string]interface{}
+func (s *Curd) Mod(update map[string]interface{}, table interface{}, where string, args ...interface{}) (int64, error) {
 	key, val := ModifyPrepareArgs(update)
 	prepare := ""
 	if where == "" {
-		prepare = fmt.Sprintf("UPDATE %s SET %s;", Identifier(table), key)
+		prepare = fmt.Sprintf("UPDATE %s SET %s;", Identifier(s.table(table)), key)
 	} else {
-		prepare = fmt.Sprintf("UPDATE %s SET %s WHERE ( %s );", Identifier(table), key, where)
+		prepare = fmt.Sprintf("UPDATE %s SET %s WHERE ( %s );", Identifier(s.table(table)), key, where)
 		val = append(val, args...)
 	}
 	return s.Execute(prepare, val...)
 }
 
-// UpdateByMapById by map[string]interface{} update
-func (s *Curd) UpdateByMapById(modify map[string]interface{}, table string, id interface{}) (int64, error) {
-	return s.UpdateByMap(modify, table, s.idEqual(), id)
+// Mod1 modify using map[string]interface{}
+func (s *Curd) Mod1(modify map[string]interface{}, table interface{}, id interface{}) (int64, error) {
+	return s.Mod(modify, table, s.idEqual(), id)
 }
 
-// Update update table data based on two structure data
+// Mod2 update table data based on two struct data
 // before: source database data (struct pointer)
 // after: the latest changed data (struct pointer)
-func (s *Curd) Update(before interface{}, after interface{}, table string, where string, args ...interface{}) (rowsAffected int64, err error) {
+func (s *Curd) Mod2(before interface{}, after interface{}, table interface{}, where string, args ...interface{}) (rowsAffected int64, err error) {
 	if !s.isStructPointer(before) {
 		err = fmt.Errorf("the update object before is not a struct pointer")
 		return
@@ -336,13 +368,18 @@ func (s *Curd) Update(before interface{}, after interface{}, table string, where
 		}
 		mod[s.hat.name1(key)] = val
 	}
-	rowsAffected, err = s.UpdateByMap(mod, table, where, args...)
+	rowsAffected, err = s.Mod(mod, table, where, args...)
+	if err != nil {
+		return
+	}
 	return
 }
 
-// UpdateById update by id
-func (s *Curd) UpdateById(before interface{}, after interface{}, table string, id interface{}) (int64, error) {
-	return s.Update(before, after, table, s.idEqual(), id)
+// Mod3 update table data based on two struct data
+// before: source database data (struct pointer)
+// after: the latest changed data (struct pointer)
+func (s *Curd) Mod3(before interface{}, after interface{}, table interface{}, id interface{}) (int64, error) {
+	return s.Mod2(before, after, table, s.idEqual(), id)
 }
 
 // Count statistics rows count
