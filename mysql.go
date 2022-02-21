@@ -2,6 +2,7 @@ package gomysql
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -85,6 +86,19 @@ func UnderlineToPascal(s string) string {
 		nextLetterNeedToUpper = false
 	}
 	return string(tmp[:])
+}
+
+// JsonTransfer by jsonMarshal and unmarshal transfer data from source to result
+func JsonTransfer(source interface{}, result interface{}) error {
+	bts, err := json.Marshal(source)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(bts, result)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Identifier MySql identifier
@@ -246,18 +260,13 @@ func (s *Hat) stmt() (stmt *sql.Stmt, err error) {
 }
 
 // stmtQuery stmt query
-func (s *Hat) stmtQuery() (rows *sql.Rows, err error) {
-	var stmt *sql.Stmt
-	stmt, err = s.stmt()
+func (s *Hat) stmtQuery() (*sql.Rows, error) {
+	stmt, err := s.stmt()
 	if err != nil {
-		return
+		return nil, err
 	}
 	defer stmt.Close()
-	rows, err = stmt.Query(s.args...)
-	if err != nil {
-		return
-	}
-	return
+	return stmt.Query(s.args...)
 }
 
 // stmtExec stmt exec

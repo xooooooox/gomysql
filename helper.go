@@ -2,7 +2,6 @@ package gomysql
 
 import (
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -38,20 +37,6 @@ func ModifyPrepareArgs(update map[string]interface{}) (prepare string, args []in
 		columns[key] = fmt.Sprintf("%s = ?", Identifier(val))
 	}
 	prepare = strings.Join(columns, ", ")
-	return
-}
-
-// JsonTransfer by jsonMarshal and unmarshal transfer data from source to result
-func JsonTransfer(source interface{}, result interface{}) (err error) {
-	var bts []byte
-	bts, err = json.Marshal(source)
-	if err != nil {
-		return
-	}
-	err = json.Unmarshal(bts, result)
-	if err != nil {
-		return
-	}
 	return
 }
 
