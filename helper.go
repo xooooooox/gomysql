@@ -302,10 +302,14 @@ func (s *Curd) idEqual() string {
 
 // Del delete using where
 func (s *Curd) Del(table interface{}, where string, args ...interface{}) (int64, error) {
-	if where == "" {
-		return s.Execute(fmt.Sprintf("DELETE FROM %s;", Identifier(s.table(table))))
+	tab := s.table(table)
+	if tab == "" {
+		return 0, errors.New("please specify the table name first")
 	}
-	return s.Execute(fmt.Sprintf("DELETE FROM %s WHERE ( %s );", Identifier(s.table(table)), where), args...)
+	if where == "" {
+		return s.Execute(fmt.Sprintf("DELETE FROM %s;", Identifier(tab)))
+	}
+	return s.Execute(fmt.Sprintf("DELETE FROM %s WHERE ( %s );", Identifier(tab), where), args...)
 }
 
 // Del1 delete using id
@@ -315,12 +319,16 @@ func (s *Curd) Del1(table interface{}, id interface{}) (int64, error) {
 
 // Mod modify using map[string]interface{}
 func (s *Curd) Mod(update map[string]interface{}, table interface{}, where string, args ...interface{}) (int64, error) {
+	tab := s.table(table)
+	if tab == "" {
+		return 0, errors.New("please specify the table name first")
+	}
 	key, val := ModifyPrepareArgs(update)
 	prepare := ""
 	if where == "" {
-		prepare = fmt.Sprintf("UPDATE %s SET %s;", Identifier(s.table(table)), key)
+		prepare = fmt.Sprintf("UPDATE %s SET %s;", Identifier(tab), key)
 	} else {
-		prepare = fmt.Sprintf("UPDATE %s SET %s WHERE ( %s );", Identifier(s.table(table)), key, where)
+		prepare = fmt.Sprintf("UPDATE %s SET %s WHERE ( %s );", Identifier(tab), key, where)
 		val = append(val, args...)
 	}
 	return s.Execute(prepare, val...)
