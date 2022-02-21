@@ -74,16 +74,6 @@ func NewCurd(hat ...*Hat) (curd *Curd) {
 	return
 }
 
-// Name0 mysql name to go name
-func (s *Curd) Name0(name0 func(name string) string) {
-	s.hat.name0 = name0
-}
-
-// Name1 go name to mysql name
-func (s *Curd) Name1(name1 func(name string) string) {
-	s.hat.name1 = name1
-}
-
 // Transaction closures execute transaction, err != nil auto rollback
 func (s *Curd) Transaction(closure func(curd *Curd) (err error)) (err error) {
 	err = s.Begin()
@@ -122,6 +112,16 @@ func (s *Curd) PrepareArgs() (string, []interface{}) {
 // Fetch execute any query sql, automatically match according to naming rules
 func (s *Curd) Fetch(fetch interface{}, prepare string, args ...interface{}) error {
 	return s.hat.Prepare(prepare).Args(args...).Fetch(fetch)
+}
+
+// GetOneBts get first one string
+func (s *Curd) GetOneBts(prepare string, args ...interface{}) (map[string][]byte, error) {
+	return s.hat.Prepare(prepare).Args(args...).GetOneBts()
+}
+
+// GetAllBts get all string
+func (s *Curd) GetAllBts(prepare string, args ...interface{}) ([]map[string][]byte, error) {
+	return s.hat.Prepare(prepare).Args(args...).GetAllBts()
 }
 
 // GetOneStr get first one string
@@ -176,34 +176,17 @@ func (s *Curd) table(table interface{}) (tab string) {
 	}
 	tp := reflect.TypeOf(table)
 	if tp.Kind() == reflect.Struct {
-		tab = s.hat.name1(tp.Name())
+		tab = PascalToUnderline(tp.Name())
 		return
 	}
 	if tp.Kind() == reflect.Ptr {
 		tp = tp.Elem()
 		if tp.Kind() == reflect.Struct {
-			tab = s.hat.name1(tp.Name())
+			tab = PascalToUnderline(tp.Name())
 			return
 		}
 	}
 	return
-}
-
-// IsStructPointer whether any is a struct pointer
-func IsStructPointer(any interface{}) bool {
-	if any == nil {
-		return false
-	}
-	tp := reflect.TypeOf(any)
-	if tp.Kind() != reflect.Ptr {
-		return false
-	}
-	return tp.Elem().Kind() == reflect.Struct
-}
-
-// isStructPointer whether the interface is a struct pointer parameter
-func (s *Curd) isStructPointer(any interface{}) bool {
-	return IsStructPointer(any)
 }
 
 // addAt append timestamp
@@ -226,26 +209,37 @@ func (s *Curd) addAt(msi map[string]interface{}, add func() map[string]interface
 	return msi
 }
 
-// Add add one using map[string]interface{}
-func (s *Curd) Add(add map[string]interface{}, table interface{}) (id int64, err error) {
+// Add insert a piece of data
+func (s *Curd) Add(add interface{}, table ...interface{}) (id int64, err error) {
 	if add == nil {
-		err = errors.New("the insert object is nil")
+		err = errors.New("insert object is nil")
 		return
 	}
-	tab := s.table(table)
+	tab := ""
+	length := len(table)
+	if length > 0 {
+		tab = s.table(table[length-1])
+	} else {
+		tab = s.table(add)
+	}
 	if tab == "" {
-		err = errors.New("please specify the table name first")
+		err = errors.New("please set table name first")
+		return
+	}
+	obj := map[string]interface{}{}
+	err = s.JsonTransfer(add, obj)
+	if err != nil {
 		return
 	}
 	if s.AddAt != nil {
-		add = s.addAt(add, s.AddAt)
+		obj = s.addAt(obj, s.AddAt)
 	}
-	length := len(add)
+	length = len(obj)
 	columns := make([]string, length)
 	values := make([]string, length)
 	args := make([]interface{}, length)
 	i := 0
-	for key := range add {
+	for key := range obj {
 		columns[i] = key
 		values[i] = "?"
 		i++
@@ -253,7 +247,7 @@ func (s *Curd) Add(add map[string]interface{}, table interface{}) (id int64, err
 	// sort by field name
 	sort.Strings(columns)
 	for key, val := range columns {
-		args[key] = add[val]
+		args[key] = obj[val]
 	}
 	prepare := fmt.Sprintf(
 		"INSERT INTO %s ( %s ) VALUES ( %s );",
@@ -268,79 +262,16 @@ func (s *Curd) Add(add map[string]interface{}, table interface{}) (id int64, err
 	return
 }
 
-// Add1 add one using struct pointer
-func (s *Curd) Add1(add interface{}, table ...interface{}) (id int64, err error) {
-	if !s.isStructPointer(add) {
-		err = fmt.Errorf("the add object is not a struct pointer")
-		return
-	}
-	obj := map[string]interface{}{}
-	val := reflect.ValueOf(add)
-	vs := val.Elem()
-	for i := 0; i < vs.NumField(); i++ {
-		obj[s.hat.name1(vs.Type().Field(i).Name)] = vs.Field(i).Interface()
-	}
-	tab := ""
-	length := len(table)
-	if length > 0 {
-		tab = s.table(table[length-1])
-	} else {
-		tab = s.table(add)
-	}
-	id, err = s.Add(obj, tab)
-	if err != nil {
-		return
-	}
-	return
-}
-
-// Add2 add one using struct pointer, auto set id value
-func (s *Curd) Add2(add interface{}, table ...interface{}) (err error) {
-	if !s.isStructPointer(add) {
-		err = fmt.Errorf("the add object is not a struct pointer")
-		return
-	}
-	obj := map[string]interface{}{}
-	val := reflect.ValueOf(add)
-	vs := val.Elem()
-	idi := -1
-	tmp := ""
-	for i := 0; i < vs.NumField(); i++ {
-		tmp = s.hat.name1(vs.Type().Field(i).Name)
-		obj[tmp] = vs.Field(i).Interface()
-		if tmp == "id" {
-			idi = i
-		}
-	}
-	tab := ""
-	length := len(table)
-	if length > 0 {
-		tab = s.table(table[length-1])
-	} else {
-		tab = s.table(add)
-	}
-	var id int64
-	id, err = s.Add(obj, tab)
-	if err != nil {
-		return
-	}
-	// set id value
-	if idi >= 0 && id > 0 && vs.Field(idi).CanSet() && vs.Field(idi).Type().Kind() == reflect.Int64 {
-		vs.Field(idi).SetInt(id)
-	}
-	return
-}
-
-// idEqual create sql `id` = ?
-func (s *Curd) idEqual() string {
-	return fmt.Sprintf("%s = ?", Identifier("id"))
+// ideq id equal
+func ideq() string {
+	return "`id` = ?"
 }
 
 // Del delete using where
 func (s *Curd) Del(table interface{}, where string, args ...interface{}) (int64, error) {
 	tab := s.table(table)
 	if tab == "" {
-		return 0, errors.New("please specify the table name first")
+		return 0, errors.New("please set table name first")
 	}
 	if where == "" {
 		return s.Execute(fmt.Sprintf("DELETE FROM %s;", Identifier(tab)))
@@ -350,7 +281,7 @@ func (s *Curd) Del(table interface{}, where string, args ...interface{}) (int64,
 
 // Del1 delete using id
 func (s *Curd) Del1(table interface{}, id interface{}) (int64, error) {
-	return s.Del(table, s.idEqual(), id)
+	return s.Del(table, ideq(), id)
 }
 
 // PseudoDel pseudo delete using where
@@ -358,17 +289,29 @@ func (s *Curd) PseudoDel(table interface{}, where string, args ...interface{}) (
 	if s.DelAt == nil {
 		return 0, errors.New("please set the pseudo delete handler first")
 	}
-	mod := s.DelAt()
-	length := len(mod)
+	update := s.DelAt()
+	length := len(update)
 	if length == 0 {
 		return 0, nil
 	}
-	return s.Mod(mod, table, where, args...)
+	tab := s.table(table)
+	if tab == "" {
+		return 0, errors.New("please set table name first")
+	}
+	key, val := ModifyPrepareArgs(update)
+	prepare := ""
+	if where == "" {
+		prepare = fmt.Sprintf("UPDATE %s SET %s;", Identifier(tab), key)
+	} else {
+		prepare = fmt.Sprintf("UPDATE %s SET %s WHERE ( %s );", Identifier(tab), key, where)
+		val = append(val, args...)
+	}
+	return s.Execute(prepare, val...)
 }
 
 // PseudoDel1 pseudo delete using id
 func (s *Curd) PseudoDel1(table interface{}, id interface{}) (int64, error) {
-	return s.PseudoDel(table, s.idEqual(), id)
+	return s.PseudoDel(table, ideq(), id)
 }
 
 // Mod modify using map[string]interface{}
@@ -393,45 +336,33 @@ func (s *Curd) Mod(update map[string]interface{}, table interface{}, where strin
 
 // Mod1 modify using map[string]interface{}
 func (s *Curd) Mod1(modify map[string]interface{}, table interface{}, id interface{}) (int64, error) {
-	return s.Mod(modify, table, s.idEqual(), id)
+	return s.Mod(modify, table, ideq(), id)
 }
 
 // Mod2 update table data based on two struct data
-// before: source database data (struct pointer)
-// after: the latest changed data (struct pointer)
+// before: source database data (struct | struct pointer)
+// after: the latest changed data (struct | struct pointer)
 func (s *Curd) Mod2(before interface{}, after interface{}, table interface{}, where string, args ...interface{}) (rowsAffected int64, err error) {
-	if !s.isStructPointer(before) {
-		err = fmt.Errorf("the update object before is not a struct pointer")
+	b := map[string]interface{}{}
+	a := map[string]interface{}{}
+	err = s.JsonTransfer(before, &b)
+	if err != nil {
 		return
 	}
-	if !s.isStructPointer(after) {
-		err = fmt.Errorf("the update object after is not a struct pointer")
+	err = s.JsonTransfer(after, &a)
+	if err != nil {
 		return
-	}
-	beforeValue := reflect.ValueOf(before)
-	beforeValue1 := beforeValue.Elem()
-	beforeMap := map[string]interface{}{}
-	length := beforeValue1.NumField()
-	for i := 0; i < length; i++ {
-		beforeMap[beforeValue1.Type().Field(i).Name] = beforeValue1.Field(i).Interface()
-	}
-	afterValue := reflect.ValueOf(after)
-	afterValue1 := afterValue.Elem()
-	afterMap := map[string]interface{}{}
-	length = afterValue1.NumField()
-	for i := 0; i < length; i++ {
-		afterMap[afterValue1.Type().Field(i).Name] = afterValue1.Field(i).Interface()
 	}
 	mod := map[string]interface{}{}
-	for key, val := range afterMap {
-		beforeVal, ok := beforeMap[key]
+	for key, val := range a {
+		beforeVal, ok := b[key]
 		if !ok {
 			continue
 		}
 		if reflect.DeepEqual(beforeVal, val) {
 			continue
 		}
-		mod[s.hat.name1(key)] = val
+		mod[key] = val
 	}
 	rowsAffected, err = s.Mod(mod, table, where, args...)
 	if err != nil {
@@ -441,10 +372,10 @@ func (s *Curd) Mod2(before interface{}, after interface{}, table interface{}, wh
 }
 
 // Mod3 update table data based on two struct data
-// before: source database data (struct pointer)
-// after: the latest changed data (struct pointer)
+// before: source database data (struct | struct pointer)
+// after: the latest changed data (struct | struct pointer)
 func (s *Curd) Mod3(before interface{}, after interface{}, table interface{}, id interface{}) (int64, error) {
-	return s.Mod2(before, after, table, s.idEqual(), id)
+	return s.Mod2(before, after, table, ideq(), id)
 }
 
 // Count statistics rows count

@@ -10,7 +10,7 @@ import (
 )
 
 func init(){
-    err := mysql.Open("username:password@tcp(127.0.0.1:3306)/test?charset=utf8mb4&collation=utf8mb4_unicode_ci")
+    err := mysql.Open("mysql", "username:password@tcp(127.0.0.1:3306)/test?charset=utf8mb4&collation=utf8mb4_unicode_ci")
     if err != nil {
         fmt.Printf("%s\n", err.Error())
         os.Exit(1)

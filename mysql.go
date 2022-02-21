@@ -20,8 +20,8 @@ const (
 var db *sql.DB
 
 // Open connect to mysql service, auto set database connect; dsn: username:password@tcp(host:port)/test?charset=utf8mb4&collation=utf8mb4_unicode_ci
-func Open(dsn string) (err error) {
-	db, err = sql.Open("mysql", dsn)
+func Open(dn string, dsn string) (err error) {
+	db, err = sql.Open(dn, dsn)
 	if err != nil {
 		return
 	}
@@ -41,35 +41,11 @@ func Db1() *sql.DB {
 	return db
 }
 
-// defaultName0 mysql name to go name
-var defaultName0 = func(name string) string {
-	return UnderlineToPascal(strings.ToLower(name))
-}
-
-// defaultName1 go name to mysql name
-var defaultName1 = func(name string) string {
-	return PascalToUnderline(name)
-}
-
 // Db2 database curd object
 func Db2() *Hat {
 	return &Hat{
-		db:    db,
-		name0: defaultName0,
-		name1: defaultName1,
+		db: db,
 	}
-}
-
-// Identifier MySql identifier
-func Identifier(s string) string {
-	if strings.Contains(s, "(") {
-		// there is an identifier for a function call, do nothing
-		return s
-	}
-	s = strings.ReplaceAll(s, Backtick, "")
-	s = strings.ReplaceAll(s, ".", fmt.Sprintf("%s.%s", Backtick, Backtick))
-	s = fmt.Sprintf("%s%s%s", Backtick, s, Backtick)
-	return s
 }
 
 // PascalToUnderline XxxYyy to xxx_yyy
@@ -111,14 +87,16 @@ func UnderlineToPascal(s string) string {
 	return string(tmp[:])
 }
 
-// SetDefaultName0 mysql name to go name
-func SetDefaultName0(name0 func(name string) string) {
-	defaultName0 = name0
-}
-
-// SetDefaultName1 go name to mysql name
-func SetDefaultName1(name1 func(name string) string) {
-	defaultName1 = name1
+// Identifier MySql identifier
+func Identifier(s string) string {
+	if strings.Contains(s, "(") {
+		// there is an identifier for a function call, do nothing
+		return s
+	}
+	s = strings.ReplaceAll(s, Backtick, "")
+	s = strings.ReplaceAll(s, ".", fmt.Sprintf("%s.%s", Backtick, Backtick))
+	s = fmt.Sprintf("%s%s%s", Backtick, s, Backtick)
+	return s
 }
 
 // Query execute query sql
@@ -166,6 +144,16 @@ func Fetch(fetch interface{}, prepare string, args ...interface{}) (err error) {
 	return Db2().Prepare(prepare).Args(args...).Fetch(fetch)
 }
 
+// GetOneBts get first of query rows
+func GetOneBts(prepare string, args ...interface{}) (map[string][]byte, error) {
+	return Db2().Prepare(prepare).Args(args...).GetOneBts()
+}
+
+// GetAllBts get all of query rows
+func GetAllBts(prepare string, args ...interface{}) ([]map[string][]byte, error) {
+	return Db2().Prepare(prepare).Args(args...).GetAllBts()
+}
+
 // GetOneStr get first of query rows
 func GetOneStr(prepare string, args ...interface{}) (map[string]*string, error) {
 	return Db2().Prepare(prepare).Args(args...).GetOneStr()
@@ -193,8 +181,6 @@ type Hat struct {
 	prepare string                           // sql statement to be executed
 	args    []interface{}                    // executed sql parameters
 	scan    func(rows *sql.Rows) (err error) // scan query results
-	name0   func(name string) string         // mysql name to go name
-	name1   func(name string) string         // go name to mysql name
 }
 
 // Begin start a transaction
@@ -243,6 +229,12 @@ func (s *Hat) Args(args ...interface{}) *Hat {
 	return s
 }
 
+// PrepareArgs get prepared sql statement and parameter list of prepared sql statement
+func (s *Hat) PrepareArgs() (prepare string, args []interface{}) {
+	prepare, args = s.prepare, s.args
+	return
+}
+
 // stmt execute the prepared sql statement, if the transaction has already started, use the transaction to execute the prepared sql statement first
 func (s *Hat) stmt() (stmt *sql.Stmt, err error) {
 	if s.tx != nil {
@@ -253,62 +245,57 @@ func (s *Hat) stmt() (stmt *sql.Stmt, err error) {
 	return
 }
 
-// PrepareArgs get prepared sql statement and parameter list of prepared sql statement
-func (s *Hat) PrepareArgs() (prepare string, args []interface{}) {
-	prepare, args = s.prepare, s.args
-	return
-}
-
-// Query execute query sql
-func (s *Hat) Query() (err error) {
+// stmtQuery stmt query
+func (s *Hat) stmtQuery() (rows *sql.Rows, err error) {
 	var stmt *sql.Stmt
 	stmt, err = s.stmt()
 	if err != nil {
 		return
 	}
 	defer stmt.Close()
-	var rows *sql.Rows
 	rows, err = stmt.Query(s.args...)
 	if err != nil {
 		return
 	}
-	defer rows.Close()
-	err = s.scan(rows)
 	return
+}
+
+// stmtExec stmt exec
+func (s *Hat) stmtExec() (sql.Result, error) {
+	stmt, err := s.stmt()
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+	return stmt.Exec(s.args...)
+}
+
+// Query execute query sql
+func (s *Hat) Query() error {
+	rows, err := s.stmtQuery()
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	return s.scan(rows)
 }
 
 // Execute execute non-query sql
-func (s *Hat) Execute() (rowsAffected int64, err error) {
-	var stmt *sql.Stmt
-	stmt, err = s.stmt()
+func (s *Hat) Execute() (int64, error) {
+	result, err := s.stmtExec()
 	if err != nil {
-		return
+		return 0, err
 	}
-	defer stmt.Close()
-	var result sql.Result
-	result, err = stmt.Exec(s.args...)
-	if err != nil {
-		return
-	}
-	rowsAffected, err = result.RowsAffected()
-	return
+	return result.RowsAffected()
 }
 
 // Create execute the insert sql statement and get the self-increasing primary key value
-func (s *Hat) Create() (lastInsertId int64, err error) {
-	var stmt *sql.Stmt
-	stmt, err = s.stmt()
+func (s *Hat) Create() (int64, error) {
+	result, err := s.stmtExec()
 	if err != nil {
-		return
+		return 0, err
 	}
-	defer stmt.Close()
-	var result sql.Result
-	result, err = stmt.Exec(s.args...)
-	if err != nil {
-		return
-	}
-	lastInsertId, err = result.LastInsertId()
-	return
+	return result.LastInsertId()
 }
 
 // Count statistics rows count
@@ -384,263 +371,157 @@ func (s *Hat) Transaction(closure func(hat *Hat) (err error)) (err error) {
 	return
 }
 
-// Name0 mysql name to go name
-func (s *Hat) Name0(name0 func(name string) string) {
-	s.name0 = name0
-}
-
-// Name1 go name to mysql name
-func (s *Hat) Name1(name1 func(name string) string) {
-	s.name1 = name1
-}
-
-// scanning scan one or more rows.
-func (s *Hat) scanning(any interface{}, rows *sql.Rows, change func(name string) string) (err error) {
-	tp1 := reflect.TypeOf(any)
-	if tp1.Kind() != reflect.Ptr {
-		err = errors.New("sql: receive variable is not a pointer")
-		return
-	}
-	tp2 := tp1.Elem()
-	switch tp2.Kind() {
-	case reflect.Struct:
-		// any: *AnyStruct
-		if !rows.Next() {
-			// 查询结果集为空(没有查询到匹配的行)
-			return
-		}
-		var columns []string
-		columns, err = rows.Columns()
-		if err != nil {
-			return
-		}
-		var index int
-		var column string
-		if change == nil {
-			change = defaultName0
-		}
-		for index, column = range columns {
-			columns[index] = change(column)
-		}
-		var field reflect.Value
-		line := reflect.Indirect(reflect.New(tp2))
-		length := len(columns)
-		scanner := make([]interface{}, length)
-		cols := map[string]int{}
-		for i := 0; i < line.NumField(); i++ {
-			cols[line.Type().Field(i).Name] = i
-		}
-		var serial int
-		var ok bool
-		for index, column = range columns {
-			serial, ok = cols[column]
-			if !ok {
-				err = fmt.Errorf("struct field `%s` does not match", column)
-				return
-			}
-			field = line.Field(serial)
-			if !field.CanSet() {
-				err = fmt.Errorf("struct field `%s` cannot set value", column)
-				return
-			}
-			scanner[index] = field.Addr().Interface()
-		}
-		err = rows.Scan(scanner...)
-		if err != nil {
-			return
-		}
-		reflect.ValueOf(any).Elem().Set(line)
-	case reflect.Slice:
-		tp3 := tp2.Elem()
-		switch tp3.Kind() {
-		// any: *[]*AnyStruct
-		case reflect.Ptr:
-			if tp3.Elem().Kind() == reflect.Struct {
-				var columns []string
-				columns, err = rows.Columns()
-				if err != nil {
-					return
-				}
-				var index int
-				var column string
-				if change == nil {
-					change = defaultName0
-				}
-				for index, column = range columns {
-					columns[index] = change(column)
-				}
-				var line reflect.Value
-				var value reflect.Value
-				var field reflect.Value
-				slices := reflect.ValueOf(any).Elem()
-				length := len(columns)
-				scanner := make([]interface{}, length)
-				lines := reflect.Indirect(reflect.New(tp1.Elem().Elem().Elem()))
-				cols := map[string]int{}
-				for i := 0; i < lines.NumField(); i++ {
-					cols[lines.Type().Field(i).Name] = i
-				}
-				var serial int
-				var ok bool
-				for rows.Next() {
-					line = reflect.New(tp1.Elem().Elem().Elem())
-					value = reflect.Indirect(line)
-					for index, column = range columns {
-						serial, ok = cols[column]
-						if !ok {
-							err = fmt.Errorf("struct field `%s` does not match", column)
-							return
-						}
-						field = value.Field(serial)
-						if !field.CanSet() {
-							err = fmt.Errorf("struct field `%s` cannot set value", column)
-							return
-						}
-						scanner[index] = field.Addr().Interface()
-					}
-					err = rows.Scan(scanner...)
-					if err != nil {
-						return
-					}
-					slices = reflect.Append(slices, line)
-				}
-				if slices.Len() == 0 {
-					// 查询结果集为空(没有查询到匹配的行)
-					reflect.ValueOf(any).Elem().Set(reflect.MakeSlice(tp2, 0, 0))
-					return
-				}
-				// 查询到结果, 通过反射设置查询结果值
-				reflect.ValueOf(any).Elem().Set(slices)
-			}
-		// any: *[]AnyStruct
-		case reflect.Struct:
-			var columns []string
-			columns, err = rows.Columns()
-			if err != nil {
-				return
-			}
-			var index int
-			var column string
-			if change == nil {
-				change = defaultName0
-			}
-			for index, column = range columns {
-				columns[index] = change(column)
-			}
-			var line reflect.Value
-			var value reflect.Value
-			var field reflect.Value
-			slices := reflect.ValueOf(any).Elem()
-			length := len(columns)
-			scanner := make([]interface{}, length)
-			lines := reflect.Indirect(reflect.New(tp1.Elem().Elem()))
-			cols := map[string]int{}
-			for i := 0; i < lines.NumField(); i++ {
-				cols[lines.Type().Field(i).Name] = i
-			}
-			var serial int
-			var ok bool
-			for rows.Next() {
-				line = reflect.New(tp1.Elem().Elem())
-				value = reflect.Indirect(line)
-				for index, column = range columns {
-					serial, ok = cols[column]
-					if !ok {
-						err = fmt.Errorf("struct field `%s` does not match", column)
-						return
-					}
-					field = value.Field(serial)
-					if !field.CanSet() {
-						err = fmt.Errorf("struct field `%s` cannot set value", column)
-						return
-					}
-					scanner[index] = field.Addr().Interface()
-				}
-				err = rows.Scan(scanner...)
-				if err != nil {
-					return
-				}
-				slices = reflect.Append(slices, line.Elem())
-			}
-			if slices.Len() == 0 {
-				// 查询结果集为空(没有查询到匹配的行)
-				reflect.ValueOf(any).Elem().Set(reflect.MakeSlice(tp2, 0, 0))
-				return
-			}
-			// 查询到结果, 通过反射设置查询结果值
-			reflect.ValueOf(any).Elem().Set(slices)
-		default:
-		}
-	default:
-		err = fmt.Errorf("sql: unsupported receive variable type *%s", tp2.Name())
-	}
-	return
-}
-
 // Fetch scan one or more rows to interface{}
 func (s *Hat) Fetch(fetch interface{}) (err error) {
 	if fetch == nil {
 		err = errors.New("receive object value is nil")
 		return
 	}
-	var stmt *sql.Stmt
-	stmt, err = s.stmt()
-	if err != nil {
+	tp := reflect.TypeOf(fetch)
+	if tp.Kind() != reflect.Ptr {
+		err = errors.New("receive object is not a pointer")
 		return
 	}
-	defer stmt.Close()
+	tp = tp.Elem()
 	var rows *sql.Rows
-	rows, err = stmt.Query(s.args...)
+	switch tp.Kind() {
+	case reflect.Struct:
+		rows, err = s.stmtQuery()
+		if err != nil {
+			return
+		}
+		defer rows.Close()
+		var first map[string]interface{}
+		first, err = s.getOneAny(rows)
+		if err != nil {
+			return
+		}
+		err = JsonTransfer(first, fetch)
+	case reflect.Slice:
+		rows, err = s.stmtQuery()
+		if err != nil {
+			return
+		}
+		defer rows.Close()
+		var all []map[string]interface{}
+		all, err = s.getAllAny(rows)
+		if err != nil {
+			return
+		}
+		err = JsonTransfer(all, fetch)
+	default:
+		err = errors.New("receiving object is neither a struct pointer nor a slice pointer")
+		return
+	}
+	return
+}
+
+// GetOneBts scan one to map[string][]byte the query result is empty and return => nil, nil
+func (s *Hat) GetOneBts() (first map[string][]byte, err error) {
+	var rows *sql.Rows
+	rows, err = s.stmtQuery()
 	if err != nil {
 		return
 	}
 	defer rows.Close()
-	err = s.scanning(fetch, rows, s.name0)
+	first, err = s.getOneBts(rows)
+	return
+}
+
+// GetAllBts scan all to []map[string][]byte the query result is empty and return => []map[string][]byte{}, nil
+func (s *Hat) GetAllBts() (all []map[string][]byte, err error) {
+	var rows *sql.Rows
+	rows, err = s.stmtQuery()
 	if err != nil {
 		return
+	}
+	defer rows.Close()
+	all, err = s.getAllBts(rows)
+	return
+}
+
+// getOneBts the query result is empty and return => nil, nil
+func (s *Hat) getOneBts(rows *sql.Rows) (first map[string][]byte, err error) {
+	if !rows.Next() {
+		return
+	}
+	var length int
+	var columns []string
+	var scanner []interface{}
+	columns, err = rows.Columns()
+	if err != nil {
+		return
+	}
+	length = len(columns)
+	first = map[string][]byte{}
+	tmp := make([][]byte, length)
+	scanner = make([]interface{}, length)
+	for i := range tmp {
+		scanner[i] = &tmp[i]
+	}
+	err = rows.Scan(scanner...)
+	if err != nil {
+		return
+	}
+	for key, val := range tmp {
+		first[columns[key]] = val
+	}
+	return
+}
+
+// getAllBts the query result is empty and return => []map[string][]byte{}, nil
+func (s *Hat) getAllBts(rows *sql.Rows) (all []map[string][]byte, err error) {
+	var length int
+	var columns []string
+	var tmp [][]byte
+	var scanner []interface{}
+	var line map[string][]byte
+	columns, err = rows.Columns()
+	if err != nil {
+		return
+	}
+	length = len(columns)
+	all = []map[string][]byte{}
+	for rows.Next() {
+		tmp = make([][]byte, length)
+		scanner = make([]interface{}, length)
+		for i := range tmp {
+			scanner[i] = &tmp[i]
+		}
+		err = rows.Scan(scanner...)
+		if err != nil {
+			return
+		}
+		line = map[string][]byte{}
+		for key, val := range tmp {
+			line[columns[key]] = val
+		}
+		all = append(all, line)
 	}
 	return
 }
 
 // GetOneStr scan one to map[string]*string the query result is empty and return => nil, nil
 func (s *Hat) GetOneStr() (first map[string]*string, err error) {
-	var stmt *sql.Stmt
-	stmt, err = s.stmt()
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
 	var rows *sql.Rows
-	rows, err = stmt.Query(s.args...)
+	rows, err = s.stmtQuery()
 	if err != nil {
 		return
 	}
 	defer rows.Close()
 	first, err = s.getOneStr(rows)
-	if err != nil {
-		return
-	}
 	return
 }
 
 // GetAllStr scan all to []map[string]*string the query result is empty and return => []map[string]*string{}, nil
 func (s *Hat) GetAllStr() (all []map[string]*string, err error) {
-	var stmt *sql.Stmt
-	stmt, err = s.stmt()
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
 	var rows *sql.Rows
-	rows, err = stmt.Query(s.args...)
+	rows, err = s.stmtQuery()
 	if err != nil {
 		return
 	}
 	defer rows.Close()
 	all, err = s.getAllStr(rows)
-	if err != nil {
-		return
-	}
 	return
 }
 
@@ -717,43 +598,25 @@ func (s *Hat) getAllStr(rows *sql.Rows) (all []map[string]*string, err error) {
 
 // GetOneAny scan one to map[string]interface{} the query result is empty and return => nil, nil
 func (s *Hat) GetOneAny() (first map[string]interface{}, err error) {
-	var stmt *sql.Stmt
-	stmt, err = s.stmt()
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
 	var rows *sql.Rows
-	rows, err = stmt.Query(s.args...)
+	rows, err = s.stmtQuery()
 	if err != nil {
 		return
 	}
 	defer rows.Close()
 	first, err = s.getOneAny(rows)
-	if err != nil {
-		return
-	}
 	return
 }
 
 // GetAllAny scan all to []map[string]interface{} the query result is empty and return => []map[string]interface{}{}, nil
 func (s *Hat) GetAllAny() (all []map[string]interface{}, err error) {
-	var stmt *sql.Stmt
-	stmt, err = s.stmt()
-	if err != nil {
-		return
-	}
-	defer stmt.Close()
 	var rows *sql.Rows
-	rows, err = stmt.Query(s.args...)
+	rows, err = s.stmtQuery()
 	if err != nil {
 		return
 	}
 	defer rows.Close()
 	all, err = s.getAllAny(rows)
-	if err != nil {
-		return
-	}
 	return
 }
 
