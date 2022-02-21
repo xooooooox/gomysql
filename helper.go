@@ -55,6 +55,15 @@ func JsonTransfer(source interface{}, result interface{}) (err error) {
 	return
 }
 
+// AddAt set timestamp
+var AddAt func(add map[string]interface{}) map[string]interface{}
+
+// ModAt set timestamp
+var ModAt func(mod map[string]interface{}) map[string]interface{}
+
+// DelAt set timestamp
+var DelAt func() map[string]interface{}
+
 // Curd insert, update, delete, select
 type Curd struct {
 	hat *Hat
@@ -204,6 +213,9 @@ func (s *Curd) Add(add map[string]interface{}, table interface{}) (id int64, err
 		err = errors.New("please specify the table name first")
 		return
 	}
+	if AddAt != nil {
+		add = AddAt(add)
+	}
 	length := len(add)
 	columns := make([]string, length)
 	values := make([]string, length)
@@ -317,11 +329,32 @@ func (s *Curd) Del1(table interface{}, id interface{}) (int64, error) {
 	return s.Del(table, s.idEqual(), id)
 }
 
+// PseudoDel pseudo delete using where
+func (s *Curd) PseudoDel(table interface{}, where string, args ...interface{}) (int64, error) {
+	if DelAt == nil {
+		return 0, errors.New("please set the pseudo delete handler first => DelAt()")
+	}
+	mod := DelAt()
+	length := len(mod)
+	if length == 0 {
+		return 0, nil
+	}
+	return s.Mod(mod, table, where, args...)
+}
+
+// PseudoDel1 pseudo delete using id
+func (s *Curd) PseudoDel1(table interface{}, id interface{}) (int64, error) {
+	return s.PseudoDel(table, s.idEqual(), id)
+}
+
 // Mod modify using map[string]interface{}
 func (s *Curd) Mod(update map[string]interface{}, table interface{}, where string, args ...interface{}) (int64, error) {
 	tab := s.table(table)
 	if tab == "" {
 		return 0, errors.New("please specify the table name first")
+	}
+	if ModAt != nil {
+		update = ModAt(update)
 	}
 	key, val := ModifyPrepareArgs(update)
 	prepare := ""
