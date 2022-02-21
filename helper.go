@@ -448,59 +448,21 @@ func (s *Curd) Mod3(before interface{}, after interface{}, table interface{}, id
 }
 
 // Count statistics rows count
-func (s *Curd) Count(prepare string, args ...interface{}) (count int64, err error) {
-	err = s.Query(func(rows *sql.Rows) (err error) {
-		if rows.Next() {
-			err = rows.Scan(&count)
-		}
-		return
-	}, prepare, args...)
-	return
+func (s *Curd) Count(prepare string, args ...interface{}) (int64, error) {
+	return s.hat.Count(prepare, args...)
 }
 
 // SumInt sql sum int64
-func (s *Curd) SumInt(prepare string, args ...interface{}) (sum int64, err error) {
-	err = s.Query(func(rows *sql.Rows) (err error) {
-		if rows.Next() {
-			var tmp *int64
-			err = rows.Scan(&tmp)
-			if err != nil {
-				return
-			}
-			if tmp != nil {
-				sum = *tmp
-			}
-		}
-		return
-	}, prepare, args...)
-	return
+func (s *Curd) SumInt(prepare string, args ...interface{}) (int64, error) {
+	return s.hat.SumInt(prepare, args...)
 }
 
 // SumFloat sql sum float64
-func (s *Curd) SumFloat(prepare string, args ...interface{}) (sum float64, err error) {
-	err = s.Query(func(rows *sql.Rows) (err error) {
-		if rows.Next() {
-			var tmp *float64
-			err = rows.Scan(&tmp)
-			if err != nil {
-				return
-			}
-			if tmp != nil {
-				sum = *tmp
-			}
-		}
-		return
-	}, prepare, args...)
-	return
+func (s *Curd) SumFloat(prepare string, args ...interface{}) (float64, error) {
+	return s.hat.SumFloat(prepare, args...)
 }
 
 // Exists check if data exists
-func (s *Curd) Exists(prepare string, args ...interface{}) (exists bool, err error) {
-	err = s.Query(func(rows *sql.Rows) (err error) {
-		if rows.Next() {
-			exists = true
-		}
-		return
-	}, prepare, args...)
-	return
+func (s *Curd) Exists(prepare string, args ...interface{}) (bool, error) {
+	return s.hat.Exists(prepare, args...)
 }

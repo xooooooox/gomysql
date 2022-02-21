@@ -141,6 +141,26 @@ func Create(prepare string, args ...interface{}) (int64, error) {
 	return Db2().Prepare(prepare).Args(args...).Create()
 }
 
+// Count statistics rows count
+func Count(prepare string, args ...interface{}) (int64, error) {
+	return Db2().Count(prepare, args...)
+}
+
+// SumInt sql sum int64
+func SumInt(prepare string, args ...interface{}) (int64, error) {
+	return Db2().SumInt(prepare, args...)
+}
+
+// SumFloat sql sum float64
+func SumFloat(prepare string, args ...interface{}) (float64, error) {
+	return Db2().SumFloat(prepare, args...)
+}
+
+// Exists check if data exists
+func Exists(prepare string, args ...interface{}) (bool, error) {
+	return Db2().Exists(prepare, args...)
+}
+
 // Fetch query sql, automatically match fields according to naming rules
 func Fetch(fetch interface{}, prepare string, args ...interface{}) (err error) {
 	return Db2().Prepare(prepare).Args(args...).Fetch(fetch)
@@ -288,6 +308,64 @@ func (s *Hat) Create() (lastInsertId int64, err error) {
 		return
 	}
 	lastInsertId, err = result.LastInsertId()
+	return
+}
+
+// Count statistics rows count
+func (s *Hat) Count(prepare string, args ...interface{}) (count int64, err error) {
+	err = s.Scan(func(rows *sql.Rows) (err error) {
+		if rows.Next() {
+			err = rows.Scan(&count)
+		}
+		return
+	}).Prepare(prepare).Args(args...).Query()
+	return
+}
+
+// SumInt sql sum int64
+func (s *Hat) SumInt(prepare string, args ...interface{}) (sum int64, err error) {
+	err = s.Scan(func(rows *sql.Rows) (err error) {
+		if rows.Next() {
+			var tmp *int64
+			err = rows.Scan(&tmp)
+			if err != nil {
+				return
+			}
+			if tmp != nil {
+				sum = *tmp
+			}
+		}
+		return
+	}).Prepare(prepare).Args(args...).Query()
+	return
+}
+
+// SumFloat sql sum float64
+func (s *Hat) SumFloat(prepare string, args ...interface{}) (sum float64, err error) {
+	err = s.Scan(func(rows *sql.Rows) (err error) {
+		if rows.Next() {
+			var tmp *float64
+			err = rows.Scan(&tmp)
+			if err != nil {
+				return
+			}
+			if tmp != nil {
+				sum = *tmp
+			}
+		}
+		return
+	}).Prepare(prepare).Args(args...).Query()
+	return
+}
+
+// Exists check if data exists
+func (s *Hat) Exists(prepare string, args ...interface{}) (exists bool, err error) {
+	err = s.Scan(func(rows *sql.Rows) (err error) {
+		if rows.Next() {
+			exists = true
+		}
+		return
+	}).Prepare(prepare).Args(args...).Query()
 	return
 }
 
