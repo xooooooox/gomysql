@@ -20,7 +20,9 @@ const (
 // db database connect object
 var db *sql.DB
 
-// Open connect to mysql service, auto set database connect; dsn: username:password@tcp(host:port)/test?charset=utf8mb4&collation=utf8mb4_unicode_ci
+// Open connect to mysql service, auto set database connect
+// dn: driver name, dsn: data source name
+// username:password@tcp(host:port)/test?charset=utf8mb4&collation=utf8mb4_unicode_ci
 func Open(dn string, dsn string) (err error) {
 	db, err = sql.Open(dn, dsn)
 	if err != nil {
@@ -88,17 +90,13 @@ func UnderlineToPascal(s string) string {
 	return string(tmp[:])
 }
 
-// JsonTransfer by jsonMarshal and unmarshal transfer data from source to result
+// JsonTransfer by json marshal and unmarshal transfer data from source to result
 func JsonTransfer(source interface{}, result interface{}) error {
 	bts, err := json.Marshal(source)
 	if err != nil {
 		return err
 	}
-	err = json.Unmarshal(bts, result)
-	if err != nil {
-		return err
-	}
-	return nil
+	return json.Unmarshal(bts, result)
 }
 
 // Identifier MySql identifier
@@ -133,27 +131,27 @@ func Create(prepare string, args ...interface{}) (int64, error) {
 	return Db2().Prepare(prepare).Args(args...).Create()
 }
 
-// Count statistics rows count
+// Count sql count rows
 func Count(prepare string, args ...interface{}) (int64, error) {
 	return Db2().Count(prepare, args...)
 }
 
-// SumInt sql sum int64
+// SumInt sql sum int
 func SumInt(prepare string, args ...interface{}) (int64, error) {
 	return Db2().SumInt(prepare, args...)
 }
 
-// SumFloat sql sum float64
+// SumFloat sql sum float
 func SumFloat(prepare string, args ...interface{}) (float64, error) {
 	return Db2().SumFloat(prepare, args...)
 }
 
-// Exists check if data exists
+// Exists sql data exists
 func Exists(prepare string, args ...interface{}) (bool, error) {
 	return Db2().Exists(prepare, args...)
 }
 
-// Fetch query sql, automatically match fields according to naming rules
+// Fetch query sql, fetch query result
 func Fetch(fetch interface{}, prepare string, args ...interface{}) (err error) {
 	return Db2().Prepare(prepare).Args(args...).Fetch(fetch)
 }
@@ -244,19 +242,17 @@ func (s *Hat) Args(args ...interface{}) *Hat {
 }
 
 // PrepareArgs get prepared sql statement and parameter list of prepared sql statement
-func (s *Hat) PrepareArgs() (prepare string, args []interface{}) {
-	prepare, args = s.prepare, s.args
-	return
+func (s *Hat) PrepareArgs() (string, []interface{}) {
+	return s.prepare, s.args
 }
 
 // stmt execute the prepared sql statement, if the transaction has already started, use the transaction to execute the prepared sql statement first
-func (s *Hat) stmt() (stmt *sql.Stmt, err error) {
+func (s *Hat) stmt() (*sql.Stmt, error) {
 	if s.tx != nil {
-		stmt, err = s.tx.Prepare(s.prepare)
+		return s.tx.Prepare(s.prepare)
 	} else {
-		stmt, err = s.db.Prepare(s.prepare)
+		return s.db.Prepare(s.prepare)
 	}
-	return
 }
 
 // stmtQuery stmt query
@@ -307,7 +303,7 @@ func (s *Hat) Create() (int64, error) {
 	return result.LastInsertId()
 }
 
-// Count statistics rows count
+// Count sql count rows
 func (s *Hat) Count(prepare string, args ...interface{}) (count int64, err error) {
 	err = s.Scan(func(rows *sql.Rows) (err error) {
 		if rows.Next() {
@@ -318,7 +314,7 @@ func (s *Hat) Count(prepare string, args ...interface{}) (count int64, err error
 	return
 }
 
-// SumInt sql sum int64
+// SumInt sql sum int
 func (s *Hat) SumInt(prepare string, args ...interface{}) (sum int64, err error) {
 	err = s.Scan(func(rows *sql.Rows) (err error) {
 		if rows.Next() {
@@ -336,7 +332,7 @@ func (s *Hat) SumInt(prepare string, args ...interface{}) (sum int64, err error)
 	return
 }
 
-// SumFloat sql sum float64
+// SumFloat sql sum float
 func (s *Hat) SumFloat(prepare string, args ...interface{}) (sum float64, err error) {
 	err = s.Scan(func(rows *sql.Rows) (err error) {
 		if rows.Next() {
@@ -354,7 +350,7 @@ func (s *Hat) SumFloat(prepare string, args ...interface{}) (sum float64, err er
 	return
 }
 
-// Exists check if data exists
+// Exists sql data exists
 func (s *Hat) Exists(prepare string, args ...interface{}) (exists bool, err error) {
 	err = s.Scan(func(rows *sql.Rows) (err error) {
 		if rows.Next() {
