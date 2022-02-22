@@ -241,9 +241,6 @@ func (s *Curd) Add(add interface{}, table ...interface{}) (id int64, err error) 
 		strings.Join(values, ", "),
 	)
 	id, err = s.Insert(prepare, args...)
-	if err != nil {
-		return
-	}
 	return
 }
 
@@ -350,9 +347,6 @@ func (s *Curd) Mod2(before interface{}, after interface{}, table interface{}, wh
 		mod[key] = val
 	}
 	rowsAffected, err = s.Mod(mod, table, where, args...)
-	if err != nil {
-		return
-	}
 	return
 }
 
@@ -363,22 +357,22 @@ func (s *Curd) Mod3(before interface{}, after interface{}, table interface{}, id
 	return s.Mod2(before, after, table, ideq(), id)
 }
 
-// Count statistics rows count
+// Count sql count rows
 func (s *Curd) Count(prepare string, args ...interface{}) (int64, error) {
 	return s.hat.Count(prepare, args...)
 }
 
-// SumInt sql sum int64
+// SumInt sql sum int
 func (s *Curd) SumInt(prepare string, args ...interface{}) (int64, error) {
 	return s.hat.SumInt(prepare, args...)
 }
 
-// SumFloat sql sum float64
+// SumFloat sql sum float
 func (s *Curd) SumFloat(prepare string, args ...interface{}) (float64, error) {
 	return s.hat.SumFloat(prepare, args...)
 }
 
-// Exists check if data exists
+// Exists sql data exists
 func (s *Curd) Exists(prepare string, args ...interface{}) (bool, error) {
 	return s.hat.Exists(prepare, args...)
 }
