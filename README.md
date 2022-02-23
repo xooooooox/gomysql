@@ -1,3 +1,5 @@
+> Tips: the json tag value is the database table field name value
+
 ```go
 
 package main
