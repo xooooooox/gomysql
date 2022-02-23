@@ -366,7 +366,7 @@ func (s *Hat) Transaction(closure func(hat *Hat) (err error)) (err error) {
 	return
 }
 
-// Fetch scan one or more rows to fetch, fetch should be one of *AnyStruct, *[]AnyStruct, *[]*AnyStruct
+// Fetch scan one or more rows to fetch, fetch should be one of *AnyStruct, *[]AnyStruct, *[]*AnyStruct, *map[string]interface{}, *[]map[string]interface{}
 func (s *Hat) Fetch(fetch interface{}) (err error) {
 	if fetch == nil {
 		err = errors.New("receive object value is nil")
