@@ -393,6 +393,10 @@ func (s *Hat) Fetch(fetch interface{}) (err error) {
 		if err != nil {
 			return
 		}
+		// the query result is empty
+		if first == nil {
+			return
+		}
 		err = JsonTransfer(first, fetch)
 	case reflect.Slice:
 		rows, err = s.stmtQuery()
