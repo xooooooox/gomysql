@@ -2,7 +2,6 @@ package gomysql
 
 import (
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	jsoniter "github.com/json-iterator/go"
 )
 
 const (
@@ -19,6 +19,8 @@ const (
 
 // db database connect object
 var db *sql.DB
+
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 // Open connect to mysql service, auto set database connect
 // dn: driver name, dsn: data source name
