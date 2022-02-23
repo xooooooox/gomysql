@@ -203,9 +203,13 @@ func (s *Curd) Add(add interface{}, table ...interface{}) (id int64, err error) 
 		return
 	}
 	obj := map[string]interface{}{}
-	err = s.JsonTransfer(add, obj)
-	if err != nil {
-		return
+	ok := false
+	obj, ok = add.(map[string]interface{})
+	if !ok {
+		err = s.JsonTransfer(add, &obj)
+		if err != nil {
+			return
+		}
 	}
 	if s.AddAt != nil {
 		obj = s.addAt(obj, s.AddAt)
