@@ -135,8 +135,8 @@ func (s *Curd) Execute(prepare string, args ...interface{}) (int64, error) {
 	return s.hat.Prepare(prepare).Args(args...).Execute()
 }
 
-// Insert execute an insert sql
-func (s *Curd) Insert(prepare string, args ...interface{}) (int64, error) {
+// Create execute an insert sql
+func (s *Curd) Create(prepare string, args ...interface{}) (int64, error) {
 	return s.hat.Prepare(prepare).Args(args...).Create()
 }
 
@@ -235,7 +235,7 @@ func (s *Curd) Add(add interface{}, table ...interface{}) (id int64, err error) 
 		fmt.Sprintf("%s%s%s", Backtick, strings.Join(columns, fmt.Sprintf("%s, %s", Backtick, Backtick)), Backtick),
 		strings.Join(values, ", "),
 	)
-	id, err = s.Insert(prepare, args...)
+	id, err = s.Create(prepare, args...)
 	return
 }
 
