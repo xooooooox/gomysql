@@ -19,13 +19,13 @@ func init(){
 
 func main(){
     curd := mysql.NewCurd()
-    one, err := curd.GetOneAny("SELECT * FROM `user` ORDER BY `id` ASC LIMIT 0, 1;")
+    first, err := curd.GetFirst("SELECT * FROM `user` ORDER BY `id` ASC LIMIT 0, 1;")
     if err != nil {
         fmt.Printf("%s\n", err.Error())
         return
     }
-    fmt.Printf("%#v\n", one)
-    all, err := curd.GetAllAny("SELECT * FROM `user` ORDER BY `id` ASC LIMIT 0, 3;")
+    fmt.Printf("%#v\n", first)
+    all, err := curd.GetAll("SELECT * FROM `user` ORDER BY `id` ASC LIMIT 0, 3;")
     if err != nil {
         fmt.Printf("%s\n", err.Error())
         return

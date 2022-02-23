@@ -90,8 +90,9 @@ func (s *Curd) Commit() error {
 }
 
 // PrepareArgs get prepared sql statement and parameter list of prepared sql statement
-func (s *Curd) PrepareArgs() (string, []interface{}) {
-	return s.hat.PrepareArgs()
+func (s *Curd) PrepareArgs() (prepare string, args []interface{}) {
+	prepare, args = s.hat.PrepareArgs()
+	return
 }
 
 // Fetch execute any query sql, automatically match according to naming rules
@@ -99,34 +100,24 @@ func (s *Curd) Fetch(fetch interface{}, prepare string, args ...interface{}) err
 	return s.hat.Prepare(prepare).Args(args...).Fetch(fetch)
 }
 
-// GetOneBts get first one string
-func (s *Curd) GetOneBts(prepare string, args ...interface{}) (map[string][]byte, error) {
-	return s.hat.Prepare(prepare).Args(args...).GetOneBts()
+// GetFirst get first one any
+func (s *Curd) GetFirst(prepare string, args ...interface{}) (map[string]interface{}, error) {
+	return s.hat.Prepare(prepare).Args(args...).GetFirst()
 }
 
-// GetAllBts get all string
-func (s *Curd) GetAllBts(prepare string, args ...interface{}) ([]map[string][]byte, error) {
-	return s.hat.Prepare(prepare).Args(args...).GetAllBts()
+// GetAll get all any
+func (s *Curd) GetAll(prepare string, args ...interface{}) ([]map[string]interface{}, error) {
+	return s.hat.Prepare(prepare).Args(args...).GetAll()
 }
 
-// GetOneStr get first one string
-func (s *Curd) GetOneStr(prepare string, args ...interface{}) (map[string]*string, error) {
-	return s.hat.Prepare(prepare).Args(args...).GetOneStr()
+// GetFirstByte get first one string
+func (s *Curd) GetFirstByte(prepare string, args ...interface{}) (map[string][]byte, error) {
+	return s.hat.Prepare(prepare).Args(args...).GetFirstByte()
 }
 
-// GetAllStr get all string
-func (s *Curd) GetAllStr(prepare string, args ...interface{}) ([]map[string]*string, error) {
-	return s.hat.Prepare(prepare).Args(args...).GetAllStr()
-}
-
-// GetOneAny get first one any
-func (s *Curd) GetOneAny(prepare string, args ...interface{}) (map[string]interface{}, error) {
-	return s.hat.Prepare(prepare).Args(args...).GetOneAny()
-}
-
-// GetAllAny get all any
-func (s *Curd) GetAllAny(prepare string, args ...interface{}) ([]map[string]interface{}, error) {
-	return s.hat.Prepare(prepare).Args(args...).GetAllAny()
+// GetAllByte get all string
+func (s *Curd) GetAllByte(prepare string, args ...interface{}) ([]map[string][]byte, error) {
+	return s.hat.Prepare(prepare).Args(args...).GetAllByte()
 }
 
 // JsonTransfer data exchange by json, map[string]interface{} <=> *AnyStruct , []map[string]interface{} <=> *[]AnyStruct | *[]*AnyStruct
@@ -150,24 +141,24 @@ func (s *Curd) Insert(prepare string, args ...interface{}) (int64, error) {
 }
 
 // table cout table name
-func (s *Curd) table(table interface{}) (tab string) {
+func (s *Curd) table(table interface{}) (name string) {
 	if table == nil {
 		return
 	}
 	ok := false
-	tab, ok = table.(string)
+	name, ok = table.(string)
 	if ok {
 		return
 	}
 	tp := reflect.TypeOf(table)
 	if tp.Kind() == reflect.Struct {
-		tab = PascalToUnderline(tp.Name())
+		name = PascalToUnderline(tp.Name())
 		return
 	}
 	if tp.Kind() == reflect.Ptr {
 		tp = tp.Elem()
 		if tp.Kind() == reflect.Struct {
-			tab = PascalToUnderline(tp.Name())
+			name = PascalToUnderline(tp.Name())
 			return
 		}
 	}
@@ -261,13 +252,13 @@ func (s *Curd) Del(table interface{}, where string, args ...interface{}) (int64,
 	return s.Execute(fmt.Sprintf("DELETE FROM %s WHERE ( %s );", Identifier(tab), where), args...)
 }
 
-// Del1 delete using id
-func (s *Curd) Del1(table interface{}, id interface{}) (int64, error) {
+// DelId delete using id
+func (s *Curd) DelId(table interface{}, id interface{}) (int64, error) {
 	return s.Del(table, ideq(), id)
 }
 
-// PseudoDel pseudo delete using where
-func (s *Curd) PseudoDel(table interface{}, where string, args ...interface{}) (int64, error) {
+// FakDel fake delete using where
+func (s *Curd) FakDel(table interface{}, where string, args ...interface{}) (int64, error) {
 	if s.DelAt == nil {
 		return 0, errors.New("please set the pseudo delete handler first")
 	}
@@ -291,16 +282,16 @@ func (s *Curd) PseudoDel(table interface{}, where string, args ...interface{}) (
 	return s.Execute(prepare, val...)
 }
 
-// PseudoDel1 pseudo delete using id
-func (s *Curd) PseudoDel1(table interface{}, id interface{}) (int64, error) {
-	return s.PseudoDel(table, ideq(), id)
+// FakDelId fake delete using id
+func (s *Curd) FakDelId(table interface{}, id interface{}) (int64, error) {
+	return s.DelId(table, id)
 }
 
 // Mod modify using map[string]interface{}
 func (s *Curd) Mod(update map[string]interface{}, table interface{}, where string, args ...interface{}) (int64, error) {
 	tab := s.table(table)
 	if tab == "" {
-		return 0, errors.New("please specify the table name first")
+		return 0, errors.New("please set table name first")
 	}
 	if s.ModAt != nil {
 		update = s.addAt(update, s.ModAt)
@@ -316,24 +307,27 @@ func (s *Curd) Mod(update map[string]interface{}, table interface{}, where strin
 	return s.Execute(prepare, val...)
 }
 
-// Mod1 modify using map[string]interface{}
-func (s *Curd) Mod1(modify map[string]interface{}, table interface{}, id interface{}) (int64, error) {
+// ModId modify using map[string]interface{}
+func (s *Curd) ModId(modify map[string]interface{}, table interface{}, id interface{}) (int64, error) {
 	return s.Mod(modify, table, ideq(), id)
 }
 
-// Mod2 update table data based on two struct data
-// before: source database data (struct | struct pointer)
-// after: the latest changed data (struct | struct pointer)
-func (s *Curd) Mod2(before interface{}, after interface{}, table interface{}, where string, args ...interface{}) (rowsAffected int64, err error) {
-	b := map[string]interface{}{}
-	a := map[string]interface{}{}
-	err = s.JsonTransfer(before, &b)
-	if err != nil {
-		return
+// ModCtr update contrast, compare the values of before and after, the type of before or after should be AnyStruct, *AnyStruct, map[string]interface{}
+func (s *Curd) ModCtr(before interface{}, after interface{}, table interface{}, where string, args ...interface{}) (int64, error) {
+	var err error
+	b, ok := before.(map[string]interface{})
+	if !ok {
+		err = s.JsonTransfer(before, &b)
+		if err != nil {
+			return 0, err
+		}
 	}
-	err = s.JsonTransfer(after, &a)
-	if err != nil {
-		return
+	a, ok := after.(map[string]interface{})
+	if !ok {
+		err = s.JsonTransfer(after, &a)
+		if err != nil {
+			return 0, err
+		}
 	}
 	mod := map[string]interface{}{}
 	for key, val := range a {
@@ -346,15 +340,12 @@ func (s *Curd) Mod2(before interface{}, after interface{}, table interface{}, wh
 		}
 		mod[key] = val
 	}
-	rowsAffected, err = s.Mod(mod, table, where, args...)
-	return
+	return s.Mod(mod, table, where, args...)
 }
 
-// Mod3 update table data based on two struct data
-// before: source database data (struct | struct pointer)
-// after: the latest changed data (struct | struct pointer)
-func (s *Curd) Mod3(before interface{}, after interface{}, table interface{}, id interface{}) (int64, error) {
-	return s.Mod2(before, after, table, ideq(), id)
+// ModCtrId update contrast, compare the values of before and after
+func (s *Curd) ModCtrId(before interface{}, after interface{}, table interface{}, id interface{}) (int64, error) {
+	return s.ModCtr(before, after, table, ideq(), id)
 }
 
 // Count sql count rows

@@ -156,34 +156,24 @@ func Fetch(fetch interface{}, prepare string, args ...interface{}) (err error) {
 	return Db2().Prepare(prepare).Args(args...).Fetch(fetch)
 }
 
-// GetOneBts get first of query rows
-func GetOneBts(prepare string, args ...interface{}) (map[string][]byte, error) {
-	return Db2().Prepare(prepare).Args(args...).GetOneBts()
+// GetFirst get first of query rows
+func GetFirst(prepare string, args ...interface{}) (map[string]interface{}, error) {
+	return Db2().Prepare(prepare).Args(args...).GetFirst()
 }
 
-// GetAllBts get all of query rows
-func GetAllBts(prepare string, args ...interface{}) ([]map[string][]byte, error) {
-	return Db2().Prepare(prepare).Args(args...).GetAllBts()
+// GetAll get all of query rows
+func GetAll(prepare string, args ...interface{}) ([]map[string]interface{}, error) {
+	return Db2().Prepare(prepare).Args(args...).GetAll()
 }
 
-// GetOneStr get first of query rows
-func GetOneStr(prepare string, args ...interface{}) (map[string]*string, error) {
-	return Db2().Prepare(prepare).Args(args...).GetOneStr()
+// GetFirstByte get first of query rows
+func GetFirstByte(prepare string, args ...interface{}) (map[string][]byte, error) {
+	return Db2().Prepare(prepare).Args(args...).GetFirstByte()
 }
 
-// GetAllStr get all of query rows
-func GetAllStr(prepare string, args ...interface{}) ([]map[string]*string, error) {
-	return Db2().Prepare(prepare).Args(args...).GetAllStr()
-}
-
-// GetOneAny get first of query rows
-func GetOneAny(prepare string, args ...interface{}) (map[string]interface{}, error) {
-	return Db2().Prepare(prepare).Args(args...).GetOneAny()
-}
-
-// GetAllAny get all of query rows
-func GetAllAny(prepare string, args ...interface{}) ([]map[string]interface{}, error) {
-	return Db2().Prepare(prepare).Args(args...).GetAllAny()
+// GetAllByte get all of query rows
+func GetAllByte(prepare string, args ...interface{}) ([]map[string][]byte, error) {
+	return Db2().Prepare(prepare).Args(args...).GetAllByte()
 }
 
 // Hat mysql database sql statement execute object
@@ -376,7 +366,7 @@ func (s *Hat) Transaction(closure func(hat *Hat) (err error)) (err error) {
 	return
 }
 
-// Fetch scan one or more rows to interface{}
+// Fetch scan one or more rows to fetch, fetch should be one of *AnyStruct, *[]AnyStruct, *[]*AnyStruct
 func (s *Hat) Fetch(fetch interface{}) (err error) {
 	if fetch == nil {
 		err = errors.New("receive object value is nil")
@@ -397,7 +387,7 @@ func (s *Hat) Fetch(fetch interface{}) (err error) {
 		}
 		defer rows.Close()
 		var first map[string]interface{}
-		first, err = s.getOneAny(rows)
+		first, err = s.getFirst(rows)
 		if err != nil {
 			return
 		}
@@ -409,7 +399,7 @@ func (s *Hat) Fetch(fetch interface{}) (err error) {
 		}
 		defer rows.Close()
 		var all []map[string]interface{}
-		all, err = s.getAllAny(rows)
+		all, err = s.getAll(rows)
 		if err != nil {
 			return
 		}
@@ -421,210 +411,31 @@ func (s *Hat) Fetch(fetch interface{}) (err error) {
 	return
 }
 
-// GetOneBts scan one to map[string][]byte the query result is empty and return => nil, nil
-func (s *Hat) GetOneBts() (first map[string][]byte, err error) {
+// GetFirst scan first to map[string]interface{} the query result is empty and return => nil, nil
+func (s *Hat) GetFirst() (first map[string]interface{}, err error) {
 	var rows *sql.Rows
 	rows, err = s.stmtQuery()
 	if err != nil {
 		return
 	}
 	defer rows.Close()
-	first, err = s.getOneBts(rows)
+	first, err = s.getFirst(rows)
 	return
 }
 
-// GetAllBts scan all to []map[string][]byte the query result is empty and return => []map[string][]byte{}, nil
-func (s *Hat) GetAllBts() (all []map[string][]byte, err error) {
+// GetAll scan all to []map[string]interface{}, the query result is empty and return => []map[string]interface{}{}, nil
+func (s *Hat) GetAll() (all []map[string]interface{}, err error) {
 	var rows *sql.Rows
 	rows, err = s.stmtQuery()
 	if err != nil {
 		return
 	}
 	defer rows.Close()
-	all, err = s.getAllBts(rows)
+	all, err = s.getAll(rows)
 	return
 }
 
-// getOneBts the query result is empty and return => nil, nil
-func (s *Hat) getOneBts(rows *sql.Rows) (first map[string][]byte, err error) {
-	if !rows.Next() {
-		return
-	}
-	var length int
-	var columns []string
-	var scanner []interface{}
-	columns, err = rows.Columns()
-	if err != nil {
-		return
-	}
-	length = len(columns)
-	first = map[string][]byte{}
-	tmp := make([][]byte, length)
-	scanner = make([]interface{}, length)
-	for i := range tmp {
-		scanner[i] = &tmp[i]
-	}
-	err = rows.Scan(scanner...)
-	if err != nil {
-		return
-	}
-	for key, val := range tmp {
-		first[columns[key]] = val
-	}
-	return
-}
-
-// getAllBts the query result is empty and return => []map[string][]byte{}, nil
-func (s *Hat) getAllBts(rows *sql.Rows) (all []map[string][]byte, err error) {
-	var length int
-	var columns []string
-	var tmp [][]byte
-	var scanner []interface{}
-	var line map[string][]byte
-	columns, err = rows.Columns()
-	if err != nil {
-		return
-	}
-	length = len(columns)
-	all = []map[string][]byte{}
-	for rows.Next() {
-		tmp = make([][]byte, length)
-		scanner = make([]interface{}, length)
-		for i := range tmp {
-			scanner[i] = &tmp[i]
-		}
-		err = rows.Scan(scanner...)
-		if err != nil {
-			return
-		}
-		line = map[string][]byte{}
-		for key, val := range tmp {
-			line[columns[key]] = val
-		}
-		all = append(all, line)
-	}
-	return
-}
-
-// GetOneStr scan one to map[string]*string the query result is empty and return => nil, nil
-func (s *Hat) GetOneStr() (first map[string]*string, err error) {
-	var rows *sql.Rows
-	rows, err = s.stmtQuery()
-	if err != nil {
-		return
-	}
-	defer rows.Close()
-	first, err = s.getOneStr(rows)
-	return
-}
-
-// GetAllStr scan all to []map[string]*string the query result is empty and return => []map[string]*string{}, nil
-func (s *Hat) GetAllStr() (all []map[string]*string, err error) {
-	var rows *sql.Rows
-	rows, err = s.stmtQuery()
-	if err != nil {
-		return
-	}
-	defer rows.Close()
-	all, err = s.getAllStr(rows)
-	return
-}
-
-// getOneStr the query result is empty and return => nil, nil
-func (s *Hat) getOneStr(rows *sql.Rows) (first map[string]*string, err error) {
-	if !rows.Next() {
-		return
-	}
-	var length int
-	var columns []string
-	var scanner []interface{}
-	columns, err = rows.Columns()
-	if err != nil {
-		return
-	}
-	length = len(columns)
-	first = map[string]*string{}
-	tmp := make([][]byte, length)
-	scanner = make([]interface{}, length)
-	for i := range tmp {
-		scanner[i] = &tmp[i]
-	}
-	err = rows.Scan(scanner...)
-	if err != nil {
-		return
-	}
-	for key, val := range tmp {
-		if val == nil {
-			first[columns[key]] = nil
-		} else {
-			str := string(val)
-			first[columns[key]] = &str
-		}
-	}
-	return
-}
-
-// getAllStr the query result is empty and return => []map[string]*string{}, nil
-func (s *Hat) getAllStr(rows *sql.Rows) (all []map[string]*string, err error) {
-	var length int
-	var columns []string
-	var tmp [][]byte
-	var scanner []interface{}
-	var line map[string]*string
-	columns, err = rows.Columns()
-	if err != nil {
-		return
-	}
-	length = len(columns)
-	all = []map[string]*string{}
-	for rows.Next() {
-		tmp = make([][]byte, length)
-		scanner = make([]interface{}, length)
-		for i := range tmp {
-			scanner[i] = &tmp[i]
-		}
-		err = rows.Scan(scanner...)
-		if err != nil {
-			return
-		}
-		line = map[string]*string{}
-		for key, val := range tmp {
-			if val == nil {
-				line[columns[key]] = nil
-			} else {
-				str := string(val)
-				line[columns[key]] = &str
-			}
-		}
-		all = append(all, line)
-	}
-	return
-}
-
-// GetOneAny scan one to map[string]interface{} the query result is empty and return => nil, nil
-func (s *Hat) GetOneAny() (first map[string]interface{}, err error) {
-	var rows *sql.Rows
-	rows, err = s.stmtQuery()
-	if err != nil {
-		return
-	}
-	defer rows.Close()
-	first, err = s.getOneAny(rows)
-	return
-}
-
-// GetAllAny scan all to []map[string]interface{} the query result is empty and return => []map[string]interface{}{}, nil
-func (s *Hat) GetAllAny() (all []map[string]interface{}, err error) {
-	var rows *sql.Rows
-	rows, err = s.stmtQuery()
-	if err != nil {
-		return
-	}
-	defer rows.Close()
-	all, err = s.getAllAny(rows)
-	return
-}
-
+// DataTypeMysqlToGo mysql data type to go data type
 func DataTypeMysqlToGo(sqlColumnType *sql.ColumnType, sqlValue interface{}) (result interface{}, err error) {
 	result = sqlValue
 	if sqlValue == nil {
@@ -654,8 +465,8 @@ func DataTypeMysqlToGo(sqlColumnType *sql.ColumnType, sqlValue interface{}) (res
 	return
 }
 
-// getOneAny the query result is empty and return => nil, nil
-func (s *Hat) getOneAny(rows *sql.Rows) (first map[string]interface{}, err error) {
+// getFirst the query result is empty and return => nil, nil
+func (s *Hat) getFirst(rows *sql.Rows) (first map[string]interface{}, err error) {
 	if !rows.Next() {
 		return
 	}
@@ -686,8 +497,8 @@ func (s *Hat) getOneAny(rows *sql.Rows) (first map[string]interface{}, err error
 	return
 }
 
-// getAllAny the query result is empty and return => []map[string]interface{}{}, nil
-func (s *Hat) getAllAny(rows *sql.Rows) (all []map[string]interface{}, err error) {
+// getAll the query result is empty and return => []map[string]interface{}{}, nil
+func (s *Hat) getAll(rows *sql.Rows) (all []map[string]interface{}, err error) {
 	var length int
 	var columnTypes []*sql.ColumnType
 	var tmp []interface{}
@@ -712,6 +523,91 @@ func (s *Hat) getAllAny(rows *sql.Rows) (all []map[string]interface{}, err error
 		line = map[string]interface{}{}
 		for key, val := range tmp {
 			line[columnTypes[key].Name()], err = DataTypeMysqlToGo(columnTypes[key], val)
+		}
+		all = append(all, line)
+	}
+	return
+}
+
+// GetFirstByte scan first to map[string][]byte, the query result is empty and return => nil, nil
+func (s *Hat) GetFirstByte() (first map[string][]byte, err error) {
+	var rows *sql.Rows
+	rows, err = s.stmtQuery()
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	first, err = s.getFirstByte(rows)
+	return
+}
+
+// GetAllByte scan all to []map[string][]byte, the query result is empty and return => []map[string][]byte{}, nil
+func (s *Hat) GetAllByte() (all []map[string][]byte, err error) {
+	var rows *sql.Rows
+	rows, err = s.stmtQuery()
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	all, err = s.getAllByte(rows)
+	return
+}
+
+// getFirstByte the query result is empty and return => nil, nil
+func (s *Hat) getFirstByte(rows *sql.Rows) (first map[string][]byte, err error) {
+	if !rows.Next() {
+		return
+	}
+	var length int
+	var columns []string
+	var scanner []interface{}
+	columns, err = rows.Columns()
+	if err != nil {
+		return
+	}
+	length = len(columns)
+	first = map[string][]byte{}
+	tmp := make([][]byte, length)
+	scanner = make([]interface{}, length)
+	for i := range tmp {
+		scanner[i] = &tmp[i]
+	}
+	err = rows.Scan(scanner...)
+	if err != nil {
+		return
+	}
+	for key, val := range tmp {
+		first[columns[key]] = val
+	}
+	return
+}
+
+// getAllByte the query result is empty and return => []map[string][]byte{}, nil
+func (s *Hat) getAllByte(rows *sql.Rows) (all []map[string][]byte, err error) {
+	var length int
+	var columns []string
+	var tmp [][]byte
+	var scanner []interface{}
+	var line map[string][]byte
+	columns, err = rows.Columns()
+	if err != nil {
+		return
+	}
+	length = len(columns)
+	all = []map[string][]byte{}
+	for rows.Next() {
+		tmp = make([][]byte, length)
+		scanner = make([]interface{}, length)
+		for i := range tmp {
+			scanner[i] = &tmp[i]
+		}
+		err = rows.Scan(scanner...)
+		if err != nil {
+			return
+		}
+		line = map[string][]byte{}
+		for key, val := range tmp {
+			line[columns[key]] = val
 		}
 		all = append(all, line)
 	}
