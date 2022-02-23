@@ -213,6 +213,21 @@ func (s *Hat) Commit() (err error) {
 	return
 }
 
+// Transaction closure execute transaction, automatic rollback on error
+func (s *Hat) Transaction(closure func(hat *Hat) (err error)) (err error) {
+	err = s.Begin()
+	if err != nil {
+		return
+	}
+	err = closure(s)
+	if err != nil {
+		_ = s.Rollback()
+		return
+	}
+	_ = s.Commit()
+	return
+}
+
 // Scan set scan query result (anonymous function)
 func (s *Hat) Scan(scan func(rows *sql.Rows) (err error)) *Hat {
 	s.scan = scan
@@ -348,21 +363,6 @@ func (s *Hat) Exists(prepare string, args ...interface{}) (exists bool, err erro
 		}
 		return
 	}).Prepare(prepare).Args(args...).Query()
-	return
-}
-
-// Transaction closure execute transaction, automatic rollback on error
-func (s *Hat) Transaction(closure func(hat *Hat) (err error)) (err error) {
-	err = s.Begin()
-	if err != nil {
-		return
-	}
-	err = closure(s)
-	if err != nil {
-		_ = s.Rollback()
-		return
-	}
-	_ = s.Commit()
 	return
 }
 
