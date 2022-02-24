@@ -165,7 +165,7 @@ func Exists(prepare string, args ...interface{}) (bool, error) {
 }
 
 // Fetch query sql, fetch query result
-func Fetch(fetch interface{}, prepare string, args ...interface{}) (err error) {
+func Fetch(fetch interface{}, prepare string, args ...interface{}) (empty bool, err error) {
 	return Db2().Prepare(prepare).Args(args...).Fetch(fetch)
 }
 
@@ -379,8 +379,8 @@ func (s *Hat) Exists(prepare string, args ...interface{}) (exists bool, err erro
 	return
 }
 
-// Fetch scan one or more rows to fetch, fetch should be one of *AnyStruct, *[]AnyStruct, *[]*AnyStruct, *map[string]interface{}, *[]map[string]interface{}
-func (s *Hat) Fetch(fetch interface{}) (err error) {
+// Fetch scan one or more rows to fetch, fetch should be one of *AnyStruct, *[]AnyStruct, *[]*AnyStruct
+func (s *Hat) Fetch(fetch interface{}) (empty bool, err error) {
 	if fetch == nil {
 		err = errors.New("receive object value is nil")
 		return
@@ -392,6 +392,7 @@ func (s *Hat) Fetch(fetch interface{}) (err error) {
 	}
 	tp = tp.Elem()
 	var rows *sql.Rows
+	err = errors.New("receiving object should be one of *AnyStruct, *[]AnyStruct, *[]*AnyStruct")
 	switch tp.Kind() {
 	case reflect.Struct:
 		rows, err = s.stmtQuery()
@@ -406,10 +407,18 @@ func (s *Hat) Fetch(fetch interface{}) (err error) {
 		}
 		// the query result is empty
 		if first == nil {
+			empty = true
 			return
 		}
 		err = JsonTransfer(first, fetch)
 	case reflect.Slice:
+		tp = tp.Elem()
+		if tp.Kind() == reflect.Ptr {
+			tp = tp.Elem()
+		}
+		if tp.Kind() != reflect.Struct {
+			return
+		}
 		rows, err = s.stmtQuery()
 		if err != nil {
 			return
@@ -420,9 +429,13 @@ func (s *Hat) Fetch(fetch interface{}) (err error) {
 		if err != nil {
 			return
 		}
+		// the query result is empty
+		if len(all) == 0 {
+			empty = true
+			return
+		}
 		err = JsonTransfer(all, fetch)
 	default:
-		err = errors.New("receiving object is neither a struct pointer nor a slice pointer")
 		return
 	}
 	return

@@ -96,7 +96,7 @@ func (s *Curd) PrepareArgs() (prepare string, args []interface{}) {
 }
 
 // Fetch execute any query sql, automatically match according to naming rules
-func (s *Curd) Fetch(fetch interface{}, prepare string, args ...interface{}) error {
+func (s *Curd) Fetch(fetch interface{}, prepare string, args ...interface{}) (empty bool, err error) {
 	return s.hat.Prepare(prepare).Args(args...).Fetch(fetch)
 }
 
