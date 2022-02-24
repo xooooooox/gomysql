@@ -1,7 +1,9 @@
 package gomysql
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"reflect"
@@ -99,6 +101,15 @@ func JsonTransfer(source interface{}, result interface{}) error {
 		return err
 	}
 	return json.Unmarshal(bts, result)
+}
+
+// GobTransfer data exchange by gob source => result, result must be a pointer
+func GobTransfer(source interface{}, result interface{}) error {
+	var buffer bytes.Buffer
+	if err := gob.NewEncoder(&buffer).Encode(source); err != nil {
+		return err
+	}
+	return gob.NewDecoder(bytes.NewReader(buffer.Bytes())).Decode(result)
 }
 
 // Identifier MySql identifier
