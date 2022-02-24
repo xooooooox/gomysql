@@ -6,7 +6,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -164,15 +163,15 @@ func Exists(prepare string, args ...interface{}) (bool, error) {
 	return Db2().Exists(prepare, args...)
 }
 
-// FetchFirst fetch first one
-func FetchFirst(fetch interface{}, prepare string, args ...interface{}) (empty bool, err error) {
-	empty, err = Db2().Prepare(prepare).Args(args...).FetchFirst(fetch)
+// JsonFirst fetch first one using json
+func JsonFirst(fetch interface{}, prepare string, args ...interface{}) (empty bool, err error) {
+	empty, err = Db2().Prepare(prepare).Args(args...).JsonFirst(fetch)
 	return
 }
 
-// FetchAll fetch all
-func FetchAll(fetch interface{}, prepare string, args ...interface{}) error {
-	return Db2().Prepare(prepare).Args(args...).FetchAll(fetch)
+// JsonAll fetch all using json
+func JsonAll(fetch interface{}, prepare string, args ...interface{}) error {
+	return Db2().Prepare(prepare).Args(args...).JsonAll(fetch)
 }
 
 // GetFirst get first one
@@ -385,22 +384,8 @@ func (s *Hat) Exists(prepare string, args ...interface{}) (exists bool, err erro
 	return
 }
 
-// Fetch scan first one to fetch, fetch should be *AnyStruct
-func (s *Hat) FetchFirst(fetch interface{}) (empty bool, err error) {
-	if fetch == nil {
-		err = errors.New("receive object value is nil")
-		return
-	}
-	tp := reflect.TypeOf(fetch)
-	if tp.Kind() != reflect.Ptr {
-		err = errors.New("receive object is not a pointer")
-		return
-	}
-	tp = tp.Elem()
-	if tp.Kind() != reflect.Struct {
-		err = errors.New("receiving object should be *AnyStruct")
-		return
-	}
+// JsonFirst scan first one to fetch, fetch should be *AnyStruct
+func (s *Hat) JsonFirst(fetch interface{}) (empty bool, err error) {
 	var rows *sql.Rows
 	rows, err = s.stmtQuery()
 	if err != nil {
@@ -421,29 +406,8 @@ func (s *Hat) FetchFirst(fetch interface{}) (empty bool, err error) {
 	return
 }
 
-// Fetch scan all to fetch, fetch should be one of *[]AnyStruct, *[]*AnyStruct
-func (s *Hat) FetchAll(fetch interface{}) (err error) {
-	if fetch == nil {
-		err = errors.New("receive object value is nil")
-		return
-	}
-	tp := reflect.TypeOf(fetch)
-	if tp.Kind() != reflect.Ptr {
-		err = errors.New("receive object is not a pointer")
-		return
-	}
-	err = errors.New("receiving object should be one of *[]AnyStruct, *[]*AnyStruct")
-	tp = tp.Elem()
-	if tp.Kind() != reflect.Slice {
-		return
-	}
-	tp = tp.Elem()
-	if tp.Kind() == reflect.Ptr {
-		tp = tp.Elem()
-	}
-	if tp.Kind() != reflect.Struct {
-		return
-	}
+// JsonAll scan all to fetch, fetch should be one of *[]AnyStruct, *[]*AnyStruct
+func (s *Hat) JsonAll(fetch interface{}) (err error) {
 	var rows *sql.Rows
 	rows, err = s.stmtQuery()
 	if err != nil {

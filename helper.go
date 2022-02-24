@@ -95,15 +95,15 @@ func (s *Curd) PrepareArgs() (prepare string, args []interface{}) {
 	return
 }
 
-// FetchFirst fetch first one
-func (s *Curd) FetchFirst(fetch interface{}, prepare string, args ...interface{}) (empty bool, err error) {
-	empty, err = s.hat.Prepare(prepare).Args(args...).FetchFirst(fetch)
+// JsonFirst fetch first one using json
+func (s *Curd) JsonFirst(fetch interface{}, prepare string, args ...interface{}) (empty bool, err error) {
+	empty, err = s.hat.Prepare(prepare).Args(args...).JsonFirst(fetch)
 	return
 }
 
-// FetchAll fetch all
-func (s *Curd) FetchAll(fetch interface{}, prepare string, args ...interface{}) error {
-	return s.hat.Prepare(prepare).Args(args...).FetchAll(fetch)
+// JsonAll fetch all using json
+func (s *Curd) JsonAll(fetch interface{}, prepare string, args ...interface{}) error {
+	return s.hat.Prepare(prepare).Args(args...).JsonAll(fetch)
 }
 
 // GetFirst get first one
