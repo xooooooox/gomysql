@@ -95,27 +95,33 @@ func (s *Curd) PrepareArgs() (prepare string, args []interface{}) {
 	return
 }
 
-// Fetch execute any query sql, automatically match according to naming rules
-func (s *Curd) Fetch(fetch interface{}, prepare string, args ...interface{}) (empty bool, err error) {
-	return s.hat.Prepare(prepare).Args(args...).Fetch(fetch)
+// FetchFirst fetch first one
+func (s *Curd) FetchFirst(fetch interface{}, prepare string, args ...interface{}) (empty bool, err error) {
+	empty, err = s.hat.Prepare(prepare).Args(args...).FetchFirst(fetch)
+	return
 }
 
-// GetFirst get first one any
+// FetchAll fetch all
+func (s *Curd) FetchAll(fetch interface{}, prepare string, args ...interface{}) error {
+	return s.hat.Prepare(prepare).Args(args...).FetchAll(fetch)
+}
+
+// GetFirst get first one
 func (s *Curd) GetFirst(prepare string, args ...interface{}) (map[string]interface{}, error) {
 	return s.hat.Prepare(prepare).Args(args...).GetFirst()
 }
 
-// GetAll get all any
+// GetAll get all
 func (s *Curd) GetAll(prepare string, args ...interface{}) ([]map[string]interface{}, error) {
 	return s.hat.Prepare(prepare).Args(args...).GetAll()
 }
 
-// GetFirstByte get first one string
+// GetFirstByte get first one
 func (s *Curd) GetFirstByte(prepare string, args ...interface{}) (map[string][]byte, error) {
 	return s.hat.Prepare(prepare).Args(args...).GetFirstByte()
 }
 
-// GetAllByte get all string
+// GetAllByte get all
 func (s *Curd) GetAllByte(prepare string, args ...interface{}) ([]map[string][]byte, error) {
 	return s.hat.Prepare(prepare).Args(args...).GetAllByte()
 }

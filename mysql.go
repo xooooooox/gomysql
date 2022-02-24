@@ -164,27 +164,33 @@ func Exists(prepare string, args ...interface{}) (bool, error) {
 	return Db2().Exists(prepare, args...)
 }
 
-// Fetch query sql, fetch query result
-func Fetch(fetch interface{}, prepare string, args ...interface{}) (empty bool, err error) {
-	return Db2().Prepare(prepare).Args(args...).Fetch(fetch)
+// FetchFirst fetch first one
+func FetchFirst(fetch interface{}, prepare string, args ...interface{}) (empty bool, err error) {
+	empty, err = Db2().Prepare(prepare).Args(args...).FetchFirst(fetch)
+	return
 }
 
-// GetFirst get first of query rows
+// FetchAll fetch all
+func FetchAll(fetch interface{}, prepare string, args ...interface{}) error {
+	return Db2().Prepare(prepare).Args(args...).FetchAll(fetch)
+}
+
+// GetFirst get first one
 func GetFirst(prepare string, args ...interface{}) (map[string]interface{}, error) {
 	return Db2().Prepare(prepare).Args(args...).GetFirst()
 }
 
-// GetAll get all of query rows
+// GetAll get all
 func GetAll(prepare string, args ...interface{}) ([]map[string]interface{}, error) {
 	return Db2().Prepare(prepare).Args(args...).GetAll()
 }
 
-// GetFirstByte get first of query rows
+// GetFirstByte get first one
 func GetFirstByte(prepare string, args ...interface{}) (map[string][]byte, error) {
 	return Db2().Prepare(prepare).Args(args...).GetFirstByte()
 }
 
-// GetAllByte get all of query rows
+// GetAllByte get all
 func GetAllByte(prepare string, args ...interface{}) ([]map[string][]byte, error) {
 	return Db2().Prepare(prepare).Args(args...).GetAllByte()
 }
@@ -379,8 +385,8 @@ func (s *Hat) Exists(prepare string, args ...interface{}) (exists bool, err erro
 	return
 }
 
-// Fetch scan one or more rows to fetch, fetch should be one of *AnyStruct, *[]AnyStruct, *[]*AnyStruct
-func (s *Hat) Fetch(fetch interface{}) (empty bool, err error) {
+// Fetch scan first one to fetch, fetch should be *AnyStruct
+func (s *Hat) FetchFirst(fetch interface{}) (empty bool, err error) {
 	if fetch == nil {
 		err = errors.New("receive object value is nil")
 		return
@@ -391,57 +397,69 @@ func (s *Hat) Fetch(fetch interface{}) (empty bool, err error) {
 		return
 	}
 	tp = tp.Elem()
-	var rows *sql.Rows
-	err = errors.New("receiving object should be one of *AnyStruct, *[]AnyStruct, *[]*AnyStruct")
-	switch tp.Kind() {
-	case reflect.Struct:
-		rows, err = s.stmtQuery()
-		if err != nil {
-			return
-		}
-		defer rows.Close()
-		var first map[string]interface{}
-		first, err = s.getFirst(rows)
-		if err != nil {
-			return
-		}
-		// the query result is empty
-		if first == nil {
-			empty = true
-			return
-		}
-		err = JsonTransfer(first, fetch)
-	case reflect.Slice:
-		tp = tp.Elem()
-		if tp.Kind() == reflect.Ptr {
-			tp = tp.Elem()
-		}
-		if tp.Kind() != reflect.Struct {
-			return
-		}
-		rows, err = s.stmtQuery()
-		if err != nil {
-			return
-		}
-		defer rows.Close()
-		var all []map[string]interface{}
-		all, err = s.getAll(rows)
-		if err != nil {
-			return
-		}
-		// the query result is empty
-		if len(all) == 0 {
-			empty = true
-			return
-		}
-		err = JsonTransfer(all, fetch)
-	default:
+	if tp.Kind() != reflect.Struct {
+		err = errors.New("receiving object should be *AnyStruct")
 		return
 	}
+	var rows *sql.Rows
+	rows, err = s.stmtQuery()
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	var first map[string]interface{}
+	first, err = s.getFirst(rows)
+	if err != nil {
+		return
+	}
+	// the query result is empty
+	if first == nil {
+		empty = true
+		return
+	}
+	err = JsonTransfer(first, fetch)
 	return
 }
 
-// GetFirst scan first to map[string]interface{} the query result is empty and return => nil, nil
+// Fetch scan all to fetch, fetch should be one of *[]AnyStruct, *[]*AnyStruct
+func (s *Hat) FetchAll(fetch interface{}) (err error) {
+	if fetch == nil {
+		err = errors.New("receive object value is nil")
+		return
+	}
+	tp := reflect.TypeOf(fetch)
+	if tp.Kind() != reflect.Ptr {
+		err = errors.New("receive object is not a pointer")
+		return
+	}
+	err = errors.New("receiving object should be one of *[]AnyStruct, *[]*AnyStruct")
+	tp = tp.Elem()
+	if tp.Kind() != reflect.Slice {
+		return
+	}
+	tp = tp.Elem()
+	if tp.Kind() == reflect.Ptr {
+		tp = tp.Elem()
+	}
+	if tp.Kind() != reflect.Struct {
+		return
+	}
+	var rows *sql.Rows
+	rows, err = s.stmtQuery()
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	var all []map[string]interface{}
+	all, err = s.getAll(rows)
+	if err != nil {
+		return
+	}
+	err = JsonTransfer(all, fetch)
+	return
+}
+
+// GetFirst scan first one to map[string]interface{} the query result is empty and return => nil, nil
 func (s *Hat) GetFirst() (first map[string]interface{}, err error) {
 	var rows *sql.Rows
 	rows, err = s.stmtQuery()
@@ -559,7 +577,7 @@ func (s *Hat) getAll(rows *sql.Rows) (all []map[string]interface{}, err error) {
 	return
 }
 
-// GetFirstByte scan first to map[string][]byte, the query result is empty and return => nil, nil
+// GetFirstByte scan first one to map[string][]byte, the query result is empty and return => nil, nil
 func (s *Hat) GetFirstByte() (first map[string][]byte, err error) {
 	var rows *sql.Rows
 	rows, err = s.stmtQuery()
