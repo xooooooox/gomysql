@@ -294,7 +294,7 @@ func (s *Curd) FakDel(table interface{}, where string, args ...interface{}) (int
 
 // FakDelId fake delete using id
 func (s *Curd) FakDelId(table interface{}, id interface{}) (int64, error) {
-	return s.DelId(table, id)
+	return s.FakDel(table, ideq(), id)
 }
 
 // Mod modify using map[string]interface{}
