@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+const (
+	ideq = "`id` = ?" // where id equal
+)
+
 // modify convert map data updated as needed into field slices and field parameters
 func modify(update map[string]interface{}) (columns []string, args []interface{}) {
 	length := len(update)
@@ -245,11 +249,6 @@ func (s *Curd) Add(add interface{}, table ...interface{}) (id int64, err error) 
 	return
 }
 
-// ideq id equal
-func ideq() string {
-	return "`id` = ?"
-}
-
 // Del delete using where
 func (s *Curd) Del(table interface{}, where string, args ...interface{}) (int64, error) {
 	tab := s.table(table)
@@ -264,7 +263,7 @@ func (s *Curd) Del(table interface{}, where string, args ...interface{}) (int64,
 
 // DelId delete using id
 func (s *Curd) DelId(table interface{}, id interface{}) (int64, error) {
-	return s.Del(table, ideq(), id)
+	return s.Del(table, ideq, id)
 }
 
 // FakDel fake delete using where
@@ -294,7 +293,7 @@ func (s *Curd) FakDel(table interface{}, where string, args ...interface{}) (int
 
 // FakDelId fake delete using id
 func (s *Curd) FakDelId(table interface{}, id interface{}) (int64, error) {
-	return s.FakDel(table, ideq(), id)
+	return s.FakDel(table, ideq, id)
 }
 
 // Mod modify using map[string]interface{}
@@ -319,7 +318,7 @@ func (s *Curd) Mod(update map[string]interface{}, table interface{}, where strin
 
 // ModId modify using map[string]interface{}
 func (s *Curd) ModId(modify map[string]interface{}, table interface{}, id interface{}) (int64, error) {
-	return s.Mod(modify, table, ideq(), id)
+	return s.Mod(modify, table, ideq, id)
 }
 
 // ModCtr update contrast, compare the values of before and after, the type of before or after should be AnyStruct, *AnyStruct, map[string]interface{}
@@ -355,7 +354,7 @@ func (s *Curd) ModCtr(before interface{}, after interface{}, table interface{}, 
 
 // ModCtrId update contrast, compare the values of before and after
 func (s *Curd) ModCtrId(before interface{}, after interface{}, table interface{}, id interface{}) (int64, error) {
-	return s.ModCtr(before, after, table, ideq(), id)
+	return s.ModCtr(before, after, table, ideq, id)
 }
 
 // Count sql count rows
